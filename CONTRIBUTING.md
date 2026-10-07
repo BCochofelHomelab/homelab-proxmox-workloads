@@ -64,9 +64,13 @@ What runs:
 - **Packer** (when a `packer/**/*.pkr.hcl` or `*.pkrvars.hcl` file
   changes) — `packer fmt -check` and `packer validate -syntax-only` against
   every template directory under `packer/`.
-- **Terraform** (files under `terraform/`) — `tofu fmt`,
-  `tofu validate`, `terraform-docs` (keeps `terraform/README.md`'s
-  generated table in sync), TFLint, Trivy, and Checkov, using the configs at
+- **Terramate** (`*.tm.hcl`, files under `stacks/`) — `terramate fmt
+  --check`, and `terramate generate` to keep each stack's
+  `_terramate_generated_*.tf` in step with `stacks/*.tm.hcl` (a stale file
+  is rewritten and the hook fails: stage it and commit again).
+- **Terraform** (files under `stacks/` and `modules/`) — `tofu fmt`,
+  `tofu validate`, `terraform-docs` (keeps each stack's and module's
+  `README.md` generated table in sync), TFLint, Trivy, and Checkov, using the configs at
   the repo root (`.tflint.hcl`, `.trivy.yaml`, `.trivyignore`,
   `checkov.yaml`).
 - **Markdown** (all `*.md` files) — `markdownlint-cli2`, using

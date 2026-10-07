@@ -62,11 +62,11 @@ jobs:
         # populating the cache before pre-commit's hooks can race on it.
         # Cache dir must match the hook's own --cache-dir exactly (see
         # .pre-commit-config.yaml's terraform_trivy args).
-        # Skipped until terraform/ exists: trivy fails on a missing path.
-        if: hashFiles('terraform/**') != ''
+        # Skipped while there are no stacks: trivy fails on a missing path.
+        if: hashFiles('stacks/**/*.tf') != ''
         run: |
           mkdir -p /tmp/.cache/trivy
-          trivy config --cache-dir /tmp/.cache/trivy --config .trivy.yaml terraform >/dev/null
+          trivy config --cache-dir /tmp/.cache/trivy --config .trivy.yaml stacks >/dev/null
 
       - name: pre-commit (all files) + gitleaks (full history)
         env:

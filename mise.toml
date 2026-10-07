@@ -144,25 +144,43 @@ run = [
   "sops exec-env ~/.secrets/homelab.yaml 'packer build .'",
 ]
 
+# OpenTofu runs through Terramate, one stack at a time in dependency order.
+# Each task takes an optional stack path (default: every stack under
+# stacks/) and --tags (default: infra, the Proxmox VM stacks), e.g.
+#   mise run tofu:plan -- stacks/elastic/infra
+#   mise run tofu:plan -- --tags config
+# The plan is saved per stack, as <stack>/tfplan.
 [tasks."tofu:init"]
-description = "Initialise OpenTofu against HCP Terraform (read-write: ~/.secrets/homelab.yaml)"
-dir = "{{config_root}}/terraform"
+description = "Initialise OpenTofu in the stacks against HCP Terraform (read-write: ~/.secrets/homelab.yaml). Args: [path] [--tags]"
+usage = """
+arg "[path]" default="stacks" help="Stack, or directory of stacks"
+flag "--tags <tags>" default="infra" help="Only stacks with these Terramate tags"
+"""
+dir = "{{config_root}}"
 env = { SOPS_AGE_KEY_FILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
-run = "sops exec-env ~/.secrets/homelab.yaml 'tofu init'"
+run = "sops exec-env ~/.secrets/homelab.yaml 'terramate -C {{usage.path}} run --tags {{usage.tags}} -- tofu init'"
 
 [tasks."tofu:plan"]
-description = "Plan as terraform and save it to terraform/tfplan, the one to review before applying (read-write)"
-dir = "{{config_root}}/terraform"
+description = "Plan as terraform and save it to <stack>/tfplan, the one to review before applying (read-write). Args: [path] [--tags]"
+usage = """
+arg "[path]" default="stacks" help="Stack, or directory of stacks"
+flag "--tags <tags>" default="infra" help="Only stacks with these Terramate tags"
+"""
+dir = "{{config_root}}"
 env = { SOPS_AGE_KEY_FILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
-run = "sops exec-env ~/.secrets/homelab.yaml 'tofu plan -out=tfplan'"
+run = "sops exec-env ~/.secrets/homelab.yaml 'terramate -C {{usage.path}} run --tags {{usage.tags}} -- tofu plan -out=tfplan'"
 
-# Applies the plan saved by tofu:plan: no confirmation prompt, and tofu
-# refuses a plan that's stale against the current state.
+# Applies the plan saved by tofu:plan in each stack: no confirmation
+# prompt, and tofu refuses a plan that's stale against the current state.
 [tasks."tofu:apply"]
-description = "Apply terraform/tfplan, saved by tofu:plan, as terraform (read-write: ~/.secrets/homelab.yaml)"
-dir = "{{config_root}}/terraform"
+description = "Apply <stack>/tfplan, saved by tofu:plan, as terraform (read-write: ~/.secrets/homelab.yaml). Args: [path] [--tags]"
+usage = """
+arg "[path]" default="stacks" help="Stack, or directory of stacks"
+flag "--tags <tags>" default="infra" help="Only stacks with these Terramate tags"
+"""
+dir = "{{config_root}}"
 env = { SOPS_AGE_KEY_FILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
-run = "sops exec-env ~/.secrets/homelab.yaml 'tofu apply tfplan'"
+run = "sops exec-env ~/.secrets/homelab.yaml 'terramate -C {{usage.path}} run --tags {{usage.tags}} -- tofu apply tfplan'"
 
 [tasks."ansible:site"]
 description = "Configure every host (playbooks/site.yml); decrypts the inventory secrets with your key. Extra args after --"
@@ -245,9 +263,10 @@ SOPS_AGE_KEY_FILE=$me sops exec-env "$HOME/.secrets/homelab.yaml" "bash -c '$lib
 pve="${PKR_VAR_proxmox_api_url%/}"
 check "Proxmox token packer@pve!packer" "$pve/version" < <(printf "Authorization: PVEAPIToken=%s=%s\n" "$PKR_VAR_proxmox_api_token_id" "$PKR_VAR_proxmox_api_token_secret")
 check "Proxmox token terraform (TF_VAR_proxmox_api_token)" "$pve/version" < <(printf "Authorization: PVEAPIToken=%s\n" "$TF_VAR_proxmox_api_token")
-# Organization-level until this repo has its own HCP workspace; then check
-# that workspace instead, as homelab-proxmox-core does.
-check "HCP token, organization homelab-bcochofel-com" https://app.terraform.io/api/v2/organizations/homelab-bcochofel-com < <(printf "Authorization: Bearer %s\n" "$TF_TOKEN_app_terraform_io")
+# One workspace per stack (terramate.tm.hcl: hcp_workspace).
+for ws in workloads-elastic-infra workloads-otel-demo-infra; do
+  check "HCP token, workspace homelab-bcochofel-com/$ws" "https://app.terraform.io/api/v2/organizations/homelab-bcochofel-com/workspaces/$ws" < <(printf "Authorization: Bearer %s\n" "$TF_TOKEN_app_terraform_io")
+done
 present PKR_VAR_password_hash "$PKR_VAR_password_hash"
 present TF_VAR_cipassword "$TF_VAR_cipassword"
 exit $rc'"'" || rc=1

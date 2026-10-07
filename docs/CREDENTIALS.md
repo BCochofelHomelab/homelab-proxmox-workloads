@@ -39,15 +39,25 @@ Step 3 in core (Cloudflare) is core's own, per-repo secret. Anything like
 it here is created for this repo only, so either repo's credentials can be
 revoked without touching the other.
 
-### HCP Terraform workspace
+### HCP Terraform workspaces
 
 State lives in the same HCP Terraform organization,
-`homelab-bcochofel-com`, in this repo's own workspace(s), created as in
-core's step 2: **CLI-driven**, *Execution Mode* **Local**. The token is
-the same `TF_TOKEN_app_terraform_io` from `~/.secrets/homelab.yaml`.
+`homelab-bcochofel-com`, with **one workspace per stack**, named after the
+stack's path (`terramate.tm.hcl`, `hcp_workspace`):
 
-Until this repo has a workspace, `mise run creds:check` checks the HCP
-token against the organization instead.
+| Stack | Workspace |
+| --- | --- |
+| `stacks/elastic/infra` | `workloads-elastic-infra` |
+| `stacks/otel-demo/infra` | `workloads-otel-demo-infra` |
+
+Create each one as in core's step 2 before its first `tofu:init`:
+**CLI-driven**, then *Settings → General → Execution Mode* → **Local**
+(Proxmox is LAN-only; HCP only stores state). `tofu init` would otherwise
+create a missing workspace with the organization's default execution
+mode, which is Remote. The token is the same `TF_TOKEN_app_terraform_io`
+from `~/.secrets/homelab.yaml`, and the Proxmox token and cloud-init
+password are core's `TF_VAR_proxmox_api_token` and `TF_VAR_cipassword`.
+`mise run creds:check` checks the token can read every workspace above.
 
 ### Inventory secrets
 
@@ -78,7 +88,7 @@ The same tasks as in core, run from this repo:
 | Task | Checks |
 | --- | --- |
 | `mise run secrets:check` | Both `~/.secrets` files open with the right key, and only with it. |
-| `mise run creds:check` | Every credential authenticates. Here: the Proxmox tokens, the HCP token (organization), the GitHub PAT, and that each `group_vars/*.sops.yaml` opens with your key. |
+| `mise run creds:check` | Every credential authenticates. Here: the Proxmox tokens, the HCP token (every workspace above), the GitHub PAT, and that each `group_vars/*.sops.yaml` opens with your key. |
 | `mise run boundary:check` | The `ai-agent` key opens `homelab-ro.yaml` and nothing else, including every `group_vars/*.sops.yaml` here. Run it on WSL and in the devcontainer. |
 
 All three print `ok`/`FAIL`, never a value.

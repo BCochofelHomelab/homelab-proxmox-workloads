@@ -36,6 +36,8 @@
       "Bash(packer build *)",
       "Bash(terraform apply *)",
       "Bash(tofu apply *)",
+      "Bash(terramate run *)",
+      "Bash(terramate -C * run *)",
       "Bash(ansible-playbook *)",
       "Bash(.venv/bin/ansible-playbook *)",
       "Bash(../.venv/bin/ansible-playbook *)",
