@@ -1,0 +1,28 @@
+name: Task / roadmap item
+description: Planned work — new phase item, improvement, or follow-up
+labels: ["task"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What needs to be done
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Packer
+        - Terraform / OpenTofu
+        - Ansible (Caddy)
+        - Ansible (CoreDNS / Pihole)
+        - SRE AI-autonomy (TODO-SRE-AI.md)
+        - CI/CD / tooling
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why / context
