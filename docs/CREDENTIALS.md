@@ -81,6 +81,19 @@ Edit it later with your key:
 mise run sops -- ansible/inventory/group_vars/<group>.sops.yaml
 ```
 
+| File | Keys | Used by |
+| --- | --- | --- |
+| `elastic.sops.yaml` (group `elastic`) | `elastic_password` | Elasticsearch ([`ANSIBLE.md`](ANSIBLE.md#secrets)); later Kibana and Logstash add theirs |
+
+### Internal CA key
+
+`ansible/pki/elastic-ca.key.sops` is the private key of the CA that signs
+every Elastic certificate, encrypted to your key only (`.sops.yaml`).
+Create it, and the CA certificate, once with `mise run pki:init`
+([`ANSIBLE.md`](ANSIBLE.md#internal-ca)). Ansible decrypts it on your
+machine only to sign a host's certificate request; it's never copied to
+a VM.
+
 ## Checks
 
 The same tasks as in core, run from this repo:
@@ -88,7 +101,7 @@ The same tasks as in core, run from this repo:
 | Task | Checks |
 | --- | --- |
 | `mise run secrets:check` | Both `~/.secrets` files open with the right key, and only with it. |
-| `mise run creds:check` | Every credential authenticates. Here: the Proxmox tokens, the HCP token (every workspace above), the GitHub PAT, and that each `group_vars/*.sops.yaml` opens with your key. |
-| `mise run boundary:check` | The `ai-agent` key opens `homelab-ro.yaml` and nothing else, including every `group_vars/*.sops.yaml` here. Run it on WSL and in the devcontainer. |
+| `mise run creds:check` | Every credential authenticates. Here: the Proxmox tokens, the HCP token (every workspace above), the GitHub PAT, and that each `group_vars/*.sops.yaml` and the CA key open with your key. |
+| `mise run boundary:check` | The `ai-agent` key opens `homelab-ro.yaml` and nothing else, including every `group_vars/*.sops.yaml` and the CA key here. Run it on WSL and in the devcontainer. |
 
 All three print `ok`/`FAIL`, never a value.

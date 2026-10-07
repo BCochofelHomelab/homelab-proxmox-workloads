@@ -23,7 +23,7 @@ stack and its demo workloads.
 | VM | vCPU | RAM | OS disk | Data disk | Ansible groups |
 | --- | --- | --- | --- | --- | --- |
 | `es-01`, `es-02`, `es-03` | 2 | 8 GB | 50 GB | 200 GB | `elasticsearch` |
-| `kibana` | 2 | 4 GB | 50 GB | — | `kibana`, `fleet_server` |
+| `kibana` | 2 | 4 GB | 50 GB | — | `kibana_server`, `fleet_server` |
 | `ingest` | 2 | 4 GB | 50 GB | 50 GB | `logstash`, `edot_gateway` |
 | `otel-demo` | 2 | 6 GB | 50 GB | — | `otel_demo` |
 

@@ -1,0 +1,14 @@
+---
+- name: Preflight checks
+  hosts: all
+  gather_facts: true
+  roles:
+    - common
+
+# Before any service is installed: its package then lands on the data disk.
+- name: Data disks
+  hosts: elasticsearch:logstash
+  gather_facts: false
+  roles:
+    - role: data_disk
+      when: data_disk_mount_point is defined

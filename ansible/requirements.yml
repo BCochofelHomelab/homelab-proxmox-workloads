@@ -1,0 +1,19 @@
+---
+collections:
+  # Vars plugin that decrypts group_vars/*.sops.yaml at task time
+  # (ansible.cfg [community.sops] vars_stage = task), and the lookup that
+  # decrypts the internal CA's key (pki/).
+  - name: community.sops
+    version: ">=2.0.0"
+  # Node keys, CSRs and certificates signed by the internal CA.
+  - name: community.crypto
+    version: ">=2.20.0"
+  # filesystem (data disks).
+  - name: community.general
+    version: ">=8.0.0"
+  # mount (data disks).
+  - name: ansible.posix
+    version: ">=1.5.0"
+  # Docker Compose on the OpenTelemetry Demo VM.
+  - name: community.docker
+    version: ">=3.10.0"

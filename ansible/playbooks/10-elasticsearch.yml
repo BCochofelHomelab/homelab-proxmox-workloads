@@ -1,0 +1,43 @@
+---
+# Install and configure every node in parallel; a fresh install starts all
+# nodes together so they form the cluster.
+- name: Install and configure Elasticsearch
+  hosts: elasticsearch
+  gather_facts: false
+  roles:
+    - elastic_repo
+    - elasticsearch
+
+- name: Wait for a green cluster
+  hosts: elasticsearch
+  gather_facts: false
+  tasks:
+    - name: Wait for the cluster to be green with every node
+      ansible.builtin.uri:
+        url: "https://localhost:{{ es_http_port }}/_cluster/health?wait_for_status=green&timeout=30s"
+        ca_path: /etc/elasticsearch/certs/ca.crt
+        url_username: elastic
+        url_password: "{{ elastic_password }}"
+        force_basic_auth: true
+      become: true
+      register: _es_health
+      until: >-
+        _es_health.status == 200 and _es_health.json.status == 'green'
+        and _es_health.json.number_of_nodes == groups['elasticsearch'] | length
+      retries: 60
+      delay: 10
+      run_once: true
+      no_log: true
+
+# Nodes that were already running and whose configuration, certificate,
+# heap or package changed: one at a time, waiting for green in between.
+- name: Rolling restart
+  hosts: elasticsearch
+  gather_facts: false
+  serial: 1
+  tasks:
+    - name: Restart this node if it needs it
+      ansible.builtin.include_role:
+        name: elasticsearch
+        tasks_from: restart
+      when: es_restart_needed | bool

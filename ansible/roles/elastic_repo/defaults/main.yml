@@ -1,0 +1,7 @@
+---
+# Elastic's signing key ("Elasticsearch (Elasticsearch Signing Key)
+# <dev_ops@elasticsearch.org>"), checked by fingerprint, as in the Packer
+# template's Elastic Agent install.
+elastic_repo_key_url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+elastic_repo_key_fingerprint: 46095ACC8548582C1A2699A9D27D666CD88E42B4 # gitleaks:allow (public key fingerprint)
+elastic_repo_keyring: /usr/share/keyrings/elastic.gpg
