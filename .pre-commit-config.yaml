@@ -14,8 +14,8 @@ repos:
   # davidanson.vscode-markdownlint VS Code extension already in use here.
   # NOT the Ruby `mdl` gem that Ubuntu's own `markdownlint` apt package
   # installs; that's an unrelated tool with an incompatible config format).
-  # Config: .markdownlint.yaml at repo root, with a terraform/
-  # override for terraform-docs-generated README content.
+  # Config: .markdownlint.yaml at repo root, with stacks/ and modules/
+  # overrides for terraform-docs-generated README content.
   - repo: https://github.com/DavidAnson/markdownlint-cli2
     rev: v0.23.2
     hooks:
@@ -60,6 +60,24 @@ repos:
         files: ^ansible/
         pass_filenames: false
 
+      # Terramate: canonical formatting of *.tm.hcl, and generated code
+      # (stacks/**/_terramate_generated_*.tf) in step with its source. A
+      # stale generated file is rewritten, which fails the hook: stage it
+      # and commit again. Binary pinned in mise.toml.
+      - id: terramate_fmt
+        name: terramate fmt --check
+        language: system
+        entry: terramate fmt --check
+        files: \.tm\.hcl$
+        pass_filenames: false
+
+      - id: terramate_generate
+        name: terramate generate
+        language: system
+        entry: terramate generate
+        files: (\.tm\.hcl$|^stacks/)
+        pass_filenames: false
+
       # Every shell script (by shebang or extension): Packer provisioners,
       # .devcontainer/post-create.sh, ... Binary pinned in mise.toml, like
       # gitleaks, rather than a separately versioned hook repo.
@@ -94,7 +112,7 @@ repos:
           - --args=-no-color
           - --args=-diff
           - --args=-recursive
-        files: ^terraform/
+        files: ^(stacks|modules)/
 
       # Terraform validation
       - id: terraform_validate
@@ -102,7 +120,7 @@ repos:
           - --hook-config=--tf-path=tofu
           - --args=-json
           - --args=-no-color
-        files: ^terraform/
+        files: ^(stacks|modules)/
 
       # Terraform documentation generation
       - id: terraform_docs
@@ -111,7 +129,7 @@ repos:
           - --hook-config=--path-to-file=README.md
           - --hook-config=--add-to-existing-file=true
           - --hook-config=--create-file-if-not-exist=true
-        files: ^terraform/
+        files: ^(stacks|modules)/
 
       # TFLint - Terraform linter
       - id: terraform_tflint
@@ -119,7 +137,7 @@ repos:
           - --hook-config=--tf-path=tofu
           - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
           - --args=--call-module-type=all
-        files: ^terraform/
+        files: ^(stacks|modules)/
 
       # Trivy - Security scanner
       - id: terraform_trivy
@@ -127,7 +145,7 @@ repos:
           - --args=--config=__GIT_WORKING_DIR__/.trivy.yaml
           - --args=--cache-dir=/tmp/.cache/trivy
           - --args=--ignorefile=__GIT_WORKING_DIR__/.trivyignore
-        files: ^terraform/
+        files: ^(stacks|modules)/
 
       # Checkov - Policy as code scanner
       # --external-checks-dir is passed here as an absolute path (not just
@@ -138,7 +156,7 @@ repos:
         args:
           - --args=--config-file=__GIT_WORKING_DIR__/checkov.yaml
           - --args=--external-checks-dir=__GIT_WORKING_DIR__/policies/checkov
-        files: ^terraform/
+        files: ^(stacks|modules)/
 
   # Commit message linting
   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook

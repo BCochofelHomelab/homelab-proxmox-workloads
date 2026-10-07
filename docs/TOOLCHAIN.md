@@ -99,9 +99,9 @@ doc: `mise ls --current` shows what's installed.
 | Tool | Why |
 | --- | --- |
 | [Packer](https://developer.hashicorp.com/packer) | Builds the VM templates (`packer/`). |
-| [OpenTofu](https://opentofu.org) (`tofu`) | Clones templates into VMs and writes the Ansible inventory (`terraform/`). The open-source fork, against HCP Terraform state. |
+| [OpenTofu](https://opentofu.org) (`tofu`) | Clones templates into VMs and writes the Ansible inventory (`stacks/`, `modules/`). The open-source fork, against HCP Terraform state. |
 | Terraform | Not used; pinned only as a rollback path from OpenTofu. |
-| [Terramate](https://terramate.io) | Orchestrates the OpenTofu stacks. |
+| [Terramate](https://terramate.io) | Orchestrates the OpenTofu stacks (`stacks/`) and generates the code they share ([`TERRAFORM.md`](TERRAFORM.md)). |
 | [Ansible](https://docs.ansible.com) | Configures the VMs (`ansible/`). Lives in `.venv/`, not in `mise.toml` (see below). |
 
 ### Linting and docs
@@ -109,7 +109,7 @@ doc: `mise ls --current` shows what's installed.
 | Tool | Why |
 | --- | --- |
 | [TFLint](https://github.com/terraform-linters/tflint) | Catches provider-specific mistakes `tofu validate` doesn't (`.tflint.hcl`). |
-| [terraform-docs](https://terraform-docs.io) | Keeps the inputs/outputs tables in `terraform/README.md` in step with the code. |
+| [terraform-docs](https://terraform-docs.io) | Keeps the inputs/outputs tables in each stack's and module's `README.md` in step with the code. |
 | [ShellCheck](https://www.shellcheck.net) | Lints every shell script: the Packer provisioners, `.devcontainer/post-create.sh`. They run as root on every build, so their bugs are expensive. |
 | [ansible-lint](https://ansible.readthedocs.io/projects/lint/) | Lints roles and playbooks with the same `ansible-core` and collections they run with. |
 | [markdownlint-cli2](https://github.com/DavidAnson/markdownlint-cli2) | Consistent Markdown across the docs (`.markdownlint.yaml`). |
@@ -165,7 +165,7 @@ pinned there:
 | Ansible collections | `ansible/requirements.yml` | Minimum versions. |
 | pre-commit hooks | `.pre-commit-config.yaml` | Exact tags (`rev:`) for hook repos; the local hooks use the mise-pinned binaries. |
 | semantic-release and plugins | `package.json` + `package-lock.json` | Exact, from the lockfile (`npm ci`). |
-| OpenTofu providers | `.terraform.lock.hcl` (each root and module) | Exact versions and checksums. |
+| OpenTofu providers | `.terraform.lock.hcl` in each stack | Exact versions and checksums. |
 | Packer plugins | `packer/*/versions.pkr.hcl` | Minimum version. |
 | Elastic Agent in the VM template | `elastic_agent_version` (Packer variable) | Exact, for the version a new clone starts at; Fleet upgrades it after enrollment. Keep it equal to core's. |
 | Devcontainer base image and features | `.devcontainer/devcontainer.json`, `devcontainer-lock.json` | Exact image tag; features locked by digest. |

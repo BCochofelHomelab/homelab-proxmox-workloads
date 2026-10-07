@@ -139,7 +139,7 @@ aren't in the container show as `not present`, which is what you want.
 Then check that the agent's work runs there:
 
 ```bash
-cd terraform && tofu init -backend=false && tofu validate && cd ..            # Success
+terramate run -- tofu init -backend=false && terramate run -- tofu validate   # Success, every stack
 cd ansible && ansible-lint && ansible-playbook playbooks/site.yml --syntax-check && cd ..   # both pass
 
 mise run tofu:plan      # fails: no ~/.secrets/homelab.yaml, and no key for it
