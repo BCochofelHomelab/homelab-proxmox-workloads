@@ -1,0 +1,149 @@
+---
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: detect-private-key
+      - id: check-merge-conflict
+      - id: no-commit-to-branch
+
+  # Markdown linting (markdownlint-cli2, the Node/JS engine — matches the
+  # davidanson.vscode-markdownlint VS Code extension already in use here.
+  # NOT the Ruby `mdl` gem that Ubuntu's own `markdownlint` apt package
+  # installs; that's an unrelated tool with an incompatible config format).
+  # Config: .markdownlint.yaml at repo root, with a terraform/
+  # override for terraform-docs-generated README content.
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.23.2
+    hooks:
+      - id: markdownlint-cli2
+
+  # Packer formatting and validation (local: no maintained hook repo exists
+  # for Packer HCL, so these shell out directly to the `packer` binary
+  # already required by this project — same tool, no extra supply chain)
+  - repo: local
+    hooks:
+      - id: packer_fmt
+        name: packer fmt -check
+        description: Checks Packer HCL files are canonically formatted
+        language: system
+        entry: bash -c 'set -e; for d in packer/*/; do packer fmt -check -diff "$d"; done'
+        files: ^packer/.*\.(pkr|pkrvars)\.hcl$
+        pass_filenames: false
+
+      - id: packer_validate
+        name: packer validate -syntax-only
+        description: Syntax-checks Packer templates (no variables required)
+        language: system
+        entry: bash -c 'set -e; for d in packer/*/; do packer validate -syntax-only "$d"; done'
+        files: ^packer/.*\.(pkr|pkrvars)\.hcl$
+        pass_filenames: false
+
+      # local, not the upstream ansible/ansible-lint hook: that hook manages
+      # its own isolated pip env via additional_dependencies, which would
+      # duplicate — and drift from — the ansible-core/ansible-lint/collection
+      # versions already pinned in requirements.txt and installed into this
+      # project's own .venv/ by `mise run setup:ansible`. Runs from ansible/ so
+      # ansible.cfg's roles_path and ansible/.ansible-lint both resolve, same
+      # as every documented ansible-playbook invocation in this repo.
+      # pass_filenames is deliberately false: ansible-lint needs the full
+      # role/play context, not individual file fragments (see
+      # https://github.com/ansible/ansible-lint/issues/611).
+      - id: ansible_lint
+        name: ansible-lint (project .venv)
+        description: Lints Ansible roles/playbooks with the project's own .venv
+        language: system
+        entry: bash -c 'cd ansible && ../.venv/bin/ansible-lint'
+        files: ^ansible/
+        pass_filenames: false
+
+      # Every shell script (by shebang or extension): Packer provisioners,
+      # .devcontainer/post-create.sh, ... Binary pinned in mise.toml, like
+      # gitleaks, rather than a separately versioned hook repo.
+      - id: shellcheck
+        name: shellcheck
+        description: Lints shell scripts
+        language: system
+        entry: shellcheck
+        types: [shell]
+
+      # Staged changes only, so it's fast on every commit. The full-history
+      # scan is `mise run secrets` (also run by CI). Binary pinned in
+      # mise.toml; config and allowlist in .gitleaks.toml.
+      - id: gitleaks
+        name: gitleaks (staged changes)
+        language: system
+        entry: gitleaks git --pre-commit --staged --redact --no-banner
+        pass_filenames: false
+
+  # Terraform formatting and validation — run with OpenTofu (`tofu`).
+  # --tf-path is set per hook, not via the PCT_TFPATH env var: git hooks
+  # fired from a shell without `mise activate` (shims only, or an IDE's git
+  # UI) never see mise.toml's [env], and would silently fall back to
+  # `terraform` — which rewrites the lock files to registry.terraform.io.
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.104.0
+    hooks:
+      # Terraform formatting
+      - id: terraform_fmt
+        args:
+          - --hook-config=--tf-path=tofu
+          - --args=-no-color
+          - --args=-diff
+          - --args=-recursive
+        files: ^terraform/
+
+      # Terraform validation
+      - id: terraform_validate
+        args:
+          - --hook-config=--tf-path=tofu
+          - --args=-json
+          - --args=-no-color
+        files: ^terraform/
+
+      # Terraform documentation generation
+      - id: terraform_docs
+        args:
+          - --hook-config=--tf-path=tofu
+          - --hook-config=--path-to-file=README.md
+          - --hook-config=--add-to-existing-file=true
+          - --hook-config=--create-file-if-not-exist=true
+        files: ^terraform/
+
+      # TFLint - Terraform linter
+      - id: terraform_tflint
+        args:
+          - --hook-config=--tf-path=tofu
+          - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
+          - --args=--call-module-type=all
+        files: ^terraform/
+
+      # Trivy - Security scanner
+      - id: terraform_trivy
+        args:
+          - --args=--config=__GIT_WORKING_DIR__/.trivy.yaml
+          - --args=--cache-dir=/tmp/.cache/trivy
+          - --args=--ignorefile=__GIT_WORKING_DIR__/.trivyignore
+        files: ^terraform/
+
+      # Checkov - Policy as code scanner
+      # --external-checks-dir is passed here as an absolute path (not just
+      # relied on from checkov.yaml's own relative entry) because this hook
+      # cd's into each changed directory before running `checkov -d .` — a
+      # relative external-checks-dir would silently resolve to nothing there.
+      - id: terraform_checkov
+        args:
+          - --args=--config-file=__GIT_WORKING_DIR__/checkov.yaml
+          - --args=--external-checks-dir=__GIT_WORKING_DIR__/policies/checkov
+        files: ^terraform/
+
+  # Commit message linting
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.23.0
+    hooks:
+      - id: commitlint
+        stages: [commit-msg]
+        additional_dependencies: ["@commitlint/config-conventional"]

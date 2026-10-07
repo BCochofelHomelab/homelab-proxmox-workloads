@@ -1,0 +1,74 @@
+---
+# Static validation only — no Proxmox/LAN access from a GitHub-hosted
+# runner (the eventual self-hosted runner and its `ci` principal are
+# tracked in TODO-SRE-AI.md, Phase A3). This mirrors what
+# pre-commit already checks locally, as a backstop for anyone who skipped
+# or bypassed hooks; it does not run `terraform apply`/`packer build`/a real
+# `ansible-playbook` against live hosts. That stays manual until a
+# self-hosted runner exists to hold the write credential instead of a
+# GitHub-hosted one.
+name: CI
+
+# pull_request only — deliberately NOT push: branches: [main] too. The
+# no-commit-to-branch pre-commit hook checks the currently-checked-out
+# branch and fails whenever it's main/master; that's correct for its
+# actual job (stopping an accidental local commit straight to main) but
+# makes it structurally impossible to pass if this workflow also runs
+# against main itself post-merge — confirmed empirically: it failed on
+# every single merge to main once branch protection started routing
+# things through PRs. PR validation is already complete via pull_request;
+# there's nothing this trigger added that wasn't already checked pre-merge.
+on:
+  pull_request:
+
+env:
+  # Install exactly what mise.lock records (versions and checksums). A
+  # mise.toml change without a matching `mise lock` fails here.
+  MISE_LOCKED: "1"
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # gitleaks scans the full history
+
+      - name: Install pinned toolchain (mise)
+        # Installs everything mise.toml/mise.lock pin, creates .venv/, then
+        # the postinstall hook runs `mise run bootstrap` (Ansible + Galaxy
+        # collections, TFLint plugins, git hooks) — same setup as a laptop.
+        uses: jdx/mise-action@v5
+        env:
+          GITHUB_TOKEN: ${{ github.token }} # tflint plugin downloads
+
+      - name: Cache pre-commit hook environments
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Pre-warm Trivy's misconfiguration checks bundle
+        # Required, not optional: pre-commit-terraform's terraform_trivy
+        # hook runs once per Terraform directory (root + each module) in
+        # parallel. On a cold cache (every CI run — this is a fresh runner,
+        # unlike a dev machine's long-lived ~/.cache/trivy) those parallel
+        # invocations race on downloading/extracting the same checks
+        # bundle into the same --cache-dir, corrupting it for whichever
+        # invocation loses the race ("mapfs file copy error: ... no such
+        # file or directory"). Reproduced and confirmed empirically, not
+        # assumed — a single sequential run first avoids it entirely by
+        # populating the cache before pre-commit's hooks can race on it.
+        # Cache dir must match the hook's own --cache-dir exactly (see
+        # .pre-commit-config.yaml's terraform_trivy args).
+        # Skipped until terraform/ exists: trivy fails on a missing path.
+        if: hashFiles('terraform/**') != ''
+        run: |
+          mkdir -p /tmp/.cache/trivy
+          trivy config --cache-dir /tmp/.cache/trivy --config .trivy.yaml terraform >/dev/null
+
+      - name: pre-commit (all files) + gitleaks (full history)
+        env:
+          GITHUB_TOKEN: ${{ github.token }} # tflint plugin downloads
+        run: mise run check

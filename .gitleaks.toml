@@ -1,0 +1,15 @@
+title = "gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Paths that never hold real secrets"
+paths = [
+  # SOPS-encrypted files are safe to commit
+  '''.*\.sops\.ya?ml$''',
+  # Lockfile checksums look like secrets but aren't
+  '''(^|/)\.terraform\.lock\.hcl$''',
+  '''(^|/)mise\.lock$''',
+  '''(^|/)\.mise/locks/''',
+]
