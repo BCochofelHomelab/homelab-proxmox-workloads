@@ -167,6 +167,7 @@ pinned there:
 | semantic-release and plugins | `package.json` + `package-lock.json` | Exact, from the lockfile (`npm ci`). |
 | OpenTofu providers | `.terraform.lock.hcl` (each root and module) | Exact versions and checksums. |
 | Packer plugins | `packer/*/versions.pkr.hcl` | Minimum version. |
+| Elastic Agent in the VM template | `elastic_agent_version` (Packer variable) | Exact, for the version a new clone starts at; Fleet upgrades it after enrollment. Keep it equal to core's. |
 | Devcontainer base image and features | `.devcontainer/devcontainer.json`, `devcontainer-lock.json` | Exact image tag; features locked by digest. |
 | CI actions | `.github/workflows/*.yml` | Major version tags. |
 
