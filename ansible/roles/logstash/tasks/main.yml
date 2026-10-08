@@ -1,0 +1,187 @@
+---
+# Installs Logstash with one pipeline: the Elastic Agent input (mTLS: only
+# clients with a certificate from the internal CA) into Elasticsearch's
+# data streams, as logstash_writer, through a persistent queue on the data
+# disk.
+
+- name: Check the Logstash secret is available
+  ansible.builtin.assert:
+    that:
+      - logstash_writer_password is defined
+      - logstash_writer_password | length >= 12
+    fail_msg: >-
+      logstash_writer_password (12+ characters) is missing from
+      inventory/group_vars/elastic.sops.yaml (docs/ANSIBLE.md).
+    quiet: true
+  no_log: true
+
+# -- logstash_writer in Elasticsearch ------------------------------------------
+
+- name: Create or update the logstash_writer role
+  ansible.builtin.uri:
+    url: "{{ es_hosts | first }}/_security/role/{{ logstash_writer_user }}"
+    method: PUT
+    body_format: json
+    body: "{{ logstash_writer_role }}"
+    ca_path: "{{ elastic_ca_cert }}"
+    url_username: elastic
+    url_password: "{{ elastic_password }}"
+    force_basic_auth: true
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: _logstash_role
+  changed_when: _logstash_role.json.role.created
+
+- name: Check whether logstash_writer authenticates with its password
+  ansible.builtin.uri:
+    url: "{{ es_hosts | first }}/_security/_authenticate"
+    ca_path: "{{ elastic_ca_cert }}"
+    url_username: "{{ logstash_writer_user }}"
+    url_password: "{{ logstash_writer_password }}"
+    force_basic_auth: true
+    status_code: [200, 401]
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: _logstash_writer_auth
+
+- name: Create logstash_writer, or reset its password
+  ansible.builtin.uri:
+    url: "{{ es_hosts | first }}/_security/user/{{ logstash_writer_user }}"
+    method: PUT
+    body_format: json
+    body:
+      password: "{{ logstash_writer_password }}"
+      roles: ["{{ logstash_writer_user }}"]
+      full_name: Logstash (homelab-proxmox-workloads)
+    ca_path: "{{ elastic_ca_cert }}"
+    url_username: elastic
+    url_password: "{{ elastic_password }}"
+    force_basic_auth: true
+  delegate_to: localhost
+  become: false
+  run_once: true
+  no_log: true
+  changed_when: true
+  when: _logstash_writer_auth.status == 401
+
+# -- Package ------------------------------------------------------------------
+
+- name: Install Logstash {{ elastic_version }}
+  ansible.builtin.apt:
+    name: "logstash={{ logstash_package_version }}"
+    allow_change_held_packages: true
+  become: true
+  notify: Restart Logstash
+
+- name: Hold the package at that version (apt upgrade never touches it)
+  ansible.builtin.dpkg_selections:
+    name: logstash
+    selection: hold
+  become: true
+
+- name: Own the data directory (on the data disk)
+  ansible.builtin.file:
+    path: "{{ logstash_data_dir }}"
+    state: directory
+    owner: logstash
+    group: logstash
+    mode: "0750"
+  become: true
+
+# -- TLS ----------------------------------------------------------------------
+
+- name: Issue Logstash's certificate
+  ansible.builtin.include_role:
+    name: elastic_pki
+  vars:
+    pki_cert_dir: "{{ logstash_certs_dir }}"
+    pki_group: logstash
+
+# The pipeline reloads on its own; the TLS material is read when the input
+# starts, so a new certificate needs a restart.
+- name: Restart Logstash if its certificate changed
+  ansible.builtin.debug:
+    msg: Logstash's key or certificates changed.
+  changed_when: true
+  notify: Restart Logstash
+  when: pki_changed
+
+# -- Configuration ------------------------------------------------------------
+
+# The writer's password reaches the pipeline as an environment variable from
+# the unit's EnvironmentFile (root-only), never in the pipeline file.
+- name: Write the environment file
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible. Read by logstash.service (EnvironmentFile).
+      LOGSTASH_WRITER_PASSWORD="{{ logstash_writer_password }}"
+      # JVM heap (logstash_heap_size); appended after jvm.options, so it wins.
+      LS_JAVA_OPTS="-Xms{{ logstash_heap_size }} -Xmx{{ logstash_heap_size }}"
+    dest: /etc/default/logstash
+    owner: root
+    group: root
+    mode: "0600"
+  become: true
+  no_log: true
+  notify: Restart Logstash
+
+- name: Write logstash.yml
+  ansible.builtin.template:
+    src: logstash.yml.j2
+    dest: "{{ logstash_config_dir }}/logstash.yml"
+    owner: root
+    group: logstash
+    mode: "0640"
+  become: true
+  notify: Restart Logstash
+
+- name: Write pipelines.yml
+  ansible.builtin.template:
+    src: pipelines.yml.j2
+    dest: "{{ logstash_config_dir }}/pipelines.yml"
+    owner: root
+    group: logstash
+    mode: "0640"
+  become: true
+  notify: Restart Logstash
+
+# Reloaded automatically (config.reload.automatic): no restart.
+- name: Write the Elastic Agent pipeline
+  ansible.builtin.template:
+    src: elastic-agent.conf.j2
+    dest: "{{ logstash_config_dir }}/conf.d/elastic-agent.conf"
+    owner: root
+    group: logstash
+    mode: "0640"
+  become: true
+
+# -- Service --------------------------------------------------------------------
+
+- name: Start Logstash and enable it at boot
+  ansible.builtin.systemd_service:
+    name: logstash
+    state: started
+    enabled: true
+  become: true
+
+- name: Apply pending restarts
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for the Elastic Agent pipeline to be running
+  ansible.builtin.uri:
+    url: http://127.0.0.1:9600/_node/pipelines/elastic-agent
+  become: true
+  register: _logstash_pipeline
+  until: >-
+    _logstash_pipeline.status == 200
+    and 'elastic-agent' in (_logstash_pipeline.json.pipelines | default({}))
+  retries: 30
+  delay: 10
+
+- name: Wait for the Elastic Agent input to listen on {{ logstash_agent_port }}
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: "{{ logstash_agent_port }}"
+    timeout: 120

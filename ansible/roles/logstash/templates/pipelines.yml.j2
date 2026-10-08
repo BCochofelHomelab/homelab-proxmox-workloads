@@ -1,0 +1,9 @@
+# {{ ansible_managed }}
+
+# Every Elastic Agent's data (Fleet's Logstash output) into Elasticsearch.
+# Persistent queue on the data disk: buffers while Elasticsearch is down,
+# and survives a Logstash restart.
+- pipeline.id: elastic-agent
+  path.config: "{{ logstash_config_dir }}/conf.d/elastic-agent.conf"
+  queue.type: persisted
+  queue.max_bytes: {{ logstash_queue_max_bytes }}

@@ -1,0 +1,20 @@
+---
+# logstash_heap_size, logstash_agent_port: group_vars/logstash.yml.
+# logstash_writer_password: group_vars/elastic.sops.yaml.
+# Logstash's DEB carries an epoch, unlike Elasticsearch's and Kibana's.
+logstash_package_version: "1:{{ elastic_version }}-1"
+logstash_config_dir: /etc/logstash
+logstash_certs_dir: "{{ logstash_config_dir }}/certs"
+logstash_data_dir: /var/lib/logstash
+# Cap on the agent pipeline's persistent queue, on the data disk: what
+# Logstash buffers while Elasticsearch is unreachable.
+logstash_queue_max_bytes: 20gb
+
+# The Elasticsearch user Logstash writes as, and its role: create documents
+# in the data streams Elastic Agent integrations write to, and nothing else.
+logstash_writer_user: logstash_writer
+logstash_writer_role:
+  cluster: [monitor]
+  indices:
+    - names: ["logs-*-*", "metrics-*-*", "traces-*-*", "synthetics-*-*", "profiling-*"]
+      privileges: [auto_configure, create_doc]

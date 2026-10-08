@@ -172,7 +172,14 @@ mise run sops -- ansible/inventory/group_vars/<group>.sops.yaml
 
 | File | Keys | Used by |
 | --- | --- | --- |
-| `elastic.sops.yaml` (group `elastic`) | `elastic_password`, `kibana_system_password`, `kibana_encryption_key` | Elasticsearch and Kibana ([`ANSIBLE.md`](ANSIBLE.md#secrets)); Logstash will add its own |
+| `elastic.sops.yaml` (group `elastic`) | `elastic_password`, `kibana_system_password`, `kibana_encryption_key`, `logstash_writer_password` | Elasticsearch, Kibana, Logstash ([`ANSIBLE.md`](ANSIBLE.md#secrets)) |
+
+### The agents' client key
+
+`ansible/pki/agent-client.key.sops` is the key of the client certificate
+every Elastic Agent presents to Logstash, encrypted to your key only.
+Created by `mise run pki:agent-client`
+([`ANSIBLE.md`](ANSIBLE.md#the-agents-client-certificate)).
 
 ### Internal CA key
 

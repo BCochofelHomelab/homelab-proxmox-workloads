@@ -1,0 +1,29 @@
+# {{ ansible_managed }}
+# Elastic Agent -> Logstash -> Elasticsearch data streams. Agents send
+# events already routed to their data stream (data_stream.*); Elasticsearch
+# runs the integrations' ingest pipelines on arrival.
+
+input {
+  elastic_agent {
+    port => {{ logstash_agent_port }}
+    ssl_enabled => true
+    ssl_certificate => "{{ logstash_certs_dir }}/node.crt"
+    ssl_key => "{{ logstash_certs_dir }}/node.key"
+    # mTLS: only clients with a certificate from the internal CA (the
+    # agents' shared client certificate, ansible/pki/agent-client.crt).
+    ssl_certificate_authorities => ["{{ logstash_certs_dir }}/ca.crt"]
+    ssl_client_authentication => "required"
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => [{% for host in es_hosts %}"{{ host }}"{% if not loop.last %}, {% endif %}{% endfor %}]
+    data_stream => true
+    user => "{{ logstash_writer_user }}"
+    password => "${LOGSTASH_WRITER_PASSWORD}"
+    ssl_enabled => true
+    ssl_certificate_authorities => ["{{ logstash_certs_dir }}/ca.crt"]
+    ssl_verification_mode => "full"
+  }
+}

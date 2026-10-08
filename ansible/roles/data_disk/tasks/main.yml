@@ -23,7 +23,7 @@
     dev: "{{ data_disk_device }}"
   become: true
 
-- name: Mount the data disk at {{ data_disk_mount_point }}
+- name: Mount the data disk where the service keeps its data (data_disk_mount_point)
   ansible.posix.mount:
     path: "{{ data_disk_mount_point }}"
     src: "{{ data_disk_device }}"
