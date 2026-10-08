@@ -1,6 +1,6 @@
 ---
 # kibana_public_url: group_vars/kibana_server.yml.
-# kibana_system_password, kibana_encryption_key: group_vars/elastic.sops.yaml.
+# kibana_system_password, kibana_encryption_key: group_vars/all.sops.yaml.
 kibana_port: 5601
 kibana_config_dir: /etc/kibana
 kibana_certs_dir: "{{ kibana_config_dir }}/certs"

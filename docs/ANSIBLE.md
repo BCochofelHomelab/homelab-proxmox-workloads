@@ -35,7 +35,7 @@ inventory secrets and the CA key only while a task needs them.
 | `group_vars/elasticsearch.yml` | Cluster name, heap, the data disk's mount point |
 | `group_vars/kibana_server.yml` | Kibana's public URL (through core's Caddy) |
 | `group_vars/logstash.yml` | The data disk's mount point, heap, the agents' port |
-| `group_vars/elastic.sops.yaml` | Secrets for the Elastic stack, SOPS-encrypted (below) |
+| `group_vars/all.sops.yaml` | Secrets for the Elastic stack, SOPS-encrypted (below) |
 
 ## Playbooks
 
@@ -51,7 +51,7 @@ inventory secrets and the CA key only while a task needs them.
 
 ## Secrets
 
-`inventory/group_vars/elastic.sops.yaml` (group `elastic`), encrypted to
+`inventory/group_vars/all.sops.yaml` (every host: each one enrolls its agent with them), encrypted to
 your age key only, never to the AI agent's:
 
 | Key | For |
@@ -66,25 +66,25 @@ with a generated password that's never shown:
 
 ```bash
 printf 'elastic_password: "%s"\n' "$(openssl rand -base64 24)" \
-  | sops encrypt --filename-override ansible/inventory/group_vars/elastic.sops.yaml \
-  > ansible/inventory/group_vars/elastic.sops.yaml
+  | sops encrypt --filename-override ansible/inventory/group_vars/all.sops.yaml \
+  > ansible/inventory/group_vars/all.sops.yaml
 ```
 
 Add a key to it later, generated the same way (`mise run sops` passes
 your key, needed to re-encrypt):
 
 ```bash
-mise run sops -- set ansible/inventory/group_vars/elastic.sops.yaml \
+mise run sops -- set ansible/inventory/group_vars/all.sops.yaml \
   '["kibana_system_password"]' "\"$(openssl rand -base64 24)\""
-mise run sops -- set ansible/inventory/group_vars/elastic.sops.yaml \
+mise run sops -- set ansible/inventory/group_vars/all.sops.yaml \
   '["kibana_encryption_key"]' "\"$(openssl rand -hex 32)\""
 ```
 
-See or edit the values with `mise run sops -- ansible/inventory/group_vars/elastic.sops.yaml`.
+See or edit the values with `mise run sops -- ansible/inventory/group_vars/all.sops.yaml`.
 For example, Logstash's:
 
 ```bash
-mise run sops -- set ansible/inventory/group_vars/elastic.sops.yaml \
+mise run sops -- set ansible/inventory/group_vars/all.sops.yaml \
   '["logstash_writer_password"]' "\"$(openssl rand -base64 24)\""
 ```
 
@@ -264,5 +264,5 @@ The agent can lint and syntax-check (`ansible-lint`,
 `ansible-playbook --syntax-check`) and read the playbooks; it can't run
 them. Running one asks you first (`.claude/settings.json`), and
 `ansible:site`, `pki:init` and every decrypting `sops` command are denied
-to it. Neither `elastic.sops.yaml` nor the CA key is encrypted to its key
+to it. Neither `all.sops.yaml` nor the CA key is encrypted to its key
 (`mise run boundary:check`).

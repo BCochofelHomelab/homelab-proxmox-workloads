@@ -11,7 +11,7 @@
       - logstash_writer_password | length >= 12
     fail_msg: >-
       logstash_writer_password (12+ characters) is missing from
-      inventory/group_vars/elastic.sops.yaml (docs/ANSIBLE.md).
+      inventory/group_vars/all.sops.yaml (docs/ANSIBLE.md).
     quiet: true
   no_log: true
 
