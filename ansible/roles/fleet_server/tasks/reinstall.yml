@@ -1,0 +1,68 @@
+---
+# Reinstalls Elastic Agent {{ elastic_version }} with the servers flavor from
+# Elastic's tarball, checked like the Packer template's install: SHA-512,
+# and the signature against Elastic's key (the keyring elastic_repo
+# installed, verified by fingerprint). `install` enrolls as Fleet Server
+# and waits for it to start. Expects /root/.fleet-server-service-token.
+
+- name: Create the download directory
+  ansible.builtin.file:
+    path: "{{ fleet_server_download_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  become: true
+
+- name: Download the Elastic Agent tarball, its checksum and signature
+  ansible.builtin.get_url:
+    url: "{{ fleet_server_agent_url }}{{ item }}"
+    dest: "{{ fleet_server_download_dir }}/{{ fleet_server_agent_name }}.tar.gz{{ item }}"
+    mode: "0600"
+  loop: ["", ".sha512", ".asc"]
+  become: true
+
+- name: Verify the signature with Elastic's key
+  ansible.builtin.command:
+    argv:
+      - gpgv
+      - --keyring
+      - /usr/share/keyrings/elastic.gpg
+      - "{{ fleet_server_download_dir }}/{{ fleet_server_agent_name }}.tar.gz.asc"
+      - "{{ fleet_server_download_dir }}/{{ fleet_server_agent_name }}.tar.gz"
+  become: true
+  changed_when: false
+
+- name: Verify the checksum
+  ansible.builtin.command:
+    argv: [sha512sum, -c, "{{ fleet_server_agent_name }}.tar.gz.sha512"]
+    chdir: "{{ fleet_server_download_dir }}"
+  become: true
+  changed_when: false
+
+- name: Unpack the tarball
+  ansible.builtin.unarchive:
+    src: "{{ fleet_server_download_dir }}/{{ fleet_server_agent_name }}.tar.gz"
+    dest: "{{ fleet_server_download_dir }}"
+    remote_src: true
+  become: true
+
+- name: Uninstall the template's agent (basic flavor)
+  ansible.builtin.command: /usr/bin/elastic-agent uninstall --force
+  become: true
+  changed_when: true
+
+- name: Install the servers flavor and enroll as Fleet Server
+  ansible.builtin.command:
+    argv: >-
+      {{ [fleet_server_download_dir ~ '/' ~ fleet_server_agent_name ~ '/elastic-agent',
+          'install', '--non-interactive', '--install-servers']
+         + fleet_server_enroll_args }}
+  become: true
+  changed_when: true
+
+- name: Remove the download directory
+  ansible.builtin.file:
+    path: "{{ fleet_server_download_dir }}"
+    state: absent
+  become: true

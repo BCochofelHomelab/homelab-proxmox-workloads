@@ -207,14 +207,22 @@ new cluster.
 
 ## Fleet Server
 
-- **Agent:** the one the Packer template installed (tarball,
-  Fleet-upgradable), enrolled as Fleet Server into `fleet-server-policy`
-  (created by `stacks/elastic/fleet`; the playbook stops with a pointer to
-  it if the policy doesn't exist yet). Enrolled once: an agent with
-  `/opt/Elastic/Agent/fleet.enc` is left as is.
+- **Agent flavor:** the Packer template installs Elastic Agent's default
+  (*basic*) flavor, which has no server components; Fleet Server needs the
+  *servers* flavor, chosen at install time (`--install-servers`). So on the
+  Fleet Server host the role reinstalls the agent once, from Elastic's
+  tarball at `elastic_version` (SHA-512 and signature checked against
+  Elastic's key, like the template's install), enrolling as Fleet Server in
+  the same `elastic-agent install` command. The other VMs keep the
+  template's agent.
+- **Idempotency:** decided from what's there, not from a marker file: no
+  `fleet-server` component → reinstall; installed but not `HEALTHY` →
+  re-enroll (`--force`); healthy → nothing.
+- **Policy:** `fleet-server-policy`, created by `stacks/elastic/fleet`; the
+  playbook stops with a pointer to it if the policy doesn't exist yet.
 - **Enrollment:** a fresh `elastic/fleet-server` service token (created as
-  `elastic`, named `<host>-fleet-server`), handed to `elastic-agent enroll`
-  as a root-only file that's removed afterwards, never on the command line.
+  `elastic`, named `<host>-fleet-server`), handed to the agent as a
+  root-only file that's removed afterwards, never on the command line.
 - **TLS:** listens on `https://192.168.68.33:8220` with a certificate from
   the internal CA (`/etc/fleet-server/certs`, root-only), and verifies
   Elasticsearch against the CA. A new certificate restarts the agent.
