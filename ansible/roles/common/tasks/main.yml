@@ -5,14 +5,16 @@
 - name: Check distribution compatibility
   ansible.builtin.assert:
     that:
-      - ansible_distribution == 'Ubuntu'
-      - ansible_distribution_version is version('24.04', '>=')
-    fail_msg: "{{ ansible_distribution }} {{ ansible_distribution_version }} isn't supported (Ubuntu 24.04 or later)."
+      - ansible_facts['distribution'] == 'Ubuntu'
+      - ansible_facts['distribution_version'] is version('24.04', '>=')
+    fail_msg: "{{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }} isn't supported (Ubuntu 24.04 or later)."
     quiet: true
 
+# /opt/Elastic/Agent is root-only (0750).
 - name: Check Elastic Agent is installed (baked by the Packer template)
   ansible.builtin.stat:
     path: /opt/Elastic/Agent/elastic-agent
+  become: true
   register: _agent_binary
 
 - name: Fail if Elastic Agent is missing
