@@ -31,3 +31,10 @@ es_hosts: >-
   {{ groups['elasticsearch'] | map('extract', hostvars, 'ansible_host')
      | map('regex_replace', '^', 'https://')
      | map('regex_replace', '$', ':' ~ es_http_port) | list }}
+
+# Fleet Server, where every agent enrolls (stacks/elastic/fleet).
+fleet_url: "https://{{ hostvars[groups['fleet_server'][0]].ansible_host }}:8220"
+
+# The Fleet agent policy a VM's agent enrolls into (stacks/elastic/fleet),
+# per role: group_vars/elasticsearch.yml and logstash.yml override it.
+elastic_agent_policy_id: homelab-vms

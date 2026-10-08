@@ -1,6 +1,6 @@
 # stacks/elastic/fleet
 
-Fleet: the Logstash output (default, mTLS) and Fleet's Elasticsearch output, the Fleet Server host, and the `fleet-server-policy` and `homelab-vms` agent policies. See [`docs/TERRAFORM.md`](../../../docs/TERRAFORM.md#fleet-stackselasticfleet).
+Fleet: the Logstash output (default, mTLS) and Fleet's Elasticsearch output, the Fleet Server host, `fleet-server-policy`, and one agent policy per VM role (`elasticsearch-nodes`, `logstash`, `homelab-vms`). See [`docs/TERRAFORM.md`](../../../docs/TERRAFORM.md#fleet-stackselasticfleet).
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
@@ -26,13 +26,13 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
+| [elasticstack_fleet_agent_policy.agents](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_agent_policy) | resource |
 | [elasticstack_fleet_agent_policy.fleet_server](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_agent_policy) | resource |
-| [elasticstack_fleet_agent_policy.vms](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_agent_policy) | resource |
 | [elasticstack_fleet_integration.fleet_server](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_integration) | resource |
 | [elasticstack_fleet_integration.system](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_integration) | resource |
+| [elasticstack_fleet_integration_policy.agents_system](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_integration_policy) | resource |
 | [elasticstack_fleet_integration_policy.fleet_server](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_integration_policy) | resource |
 | [elasticstack_fleet_integration_policy.fleet_server_system](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_integration_policy) | resource |
-| [elasticstack_fleet_integration_policy.vms_system](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_integration_policy) | resource |
 | [elasticstack_fleet_output.elasticsearch](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_output) | resource |
 | [elasticstack_fleet_output.logstash](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_output) | resource |
 | [elasticstack_fleet_server_host.kibana](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_server_host) | resource |

@@ -46,6 +46,7 @@ inventory secrets and the CA key only while a task needs them.
 | `20-kibana.yml` | Kibana (`kibana`): `kibana_system`'s password, package, certificate, keystore, configuration; waits until available |
 | `30-logstash.yml` | Logstash (`logstash`): the `logstash_writer` role and user, package, certificate, the Elastic Agent pipeline; waits until it runs and listens |
 | `40-fleet-server.yml` | Fleet Server (`fleet_server`): enrolls the kibana VM's agent into `fleet-server-policy`, once; waits until healthy. Needs the Fleet config stack applied |
+| `50-elastic-agents.yml` | Every other VM's Elastic Agent (`elastic_agent`): enrolled into its role's policy, once; waits until connected |
 | `99-healthcheck.yml` | From the controller, over TLS verified against the CA: every Elasticsearch node answers as `elastic` and runs `elastic_version`, the cluster is green with every node, Kibana is available and runs `elastic_version`. Kibana through core's Caddy is reported without failing the run. Logstash's agent pipeline runs on `elastic_version`, and its port presents a certificate that verifies against the CA |
 
 ## Secrets
@@ -232,6 +233,30 @@ new cluster.
   and turns off Kibana's legacy self-monitoring
   (`monitoring.kibana.collection.enabled: false`), whose `_monitoring/bulk`
   API is deprecated for removal in 10.0.
+
+## Elastic Agents
+
+- **Agent:** the one the Packer template installed (tarball,
+  Fleet-upgradable, basic flavor), on every VM but Fleet Server's.
+- **Policy per role** (`elastic_agent_policy_id`, `stacks/elastic/fleet`):
+  `elasticsearch-nodes` (es-01..03, `group_vars/elasticsearch.yml`),
+  `logstash` (ingest, `group_vars/logstash.yml`), `homelab-vms`
+  (everything else, `group_vars/all.yml`). Role-specific integrations
+  (stack monitoring) go on these policies.
+- **Enrollment:** the policy's enrollment token from Fleet's API (read as
+  `elastic`), `elastic-agent enroll --url https://192.168.68.33:8220`,
+  trusting Fleet Server's certificate through the internal CA
+  (`/etc/elastic-agent/ca.crt`). The token is on the command line for the
+  few seconds `enroll` runs: it has no file option.
+- **Idempotency:** an agent that reports `is_managed` and a healthy Fleet
+  state (`elastic-agent status`) is left alone; otherwise it's enrolled
+  (`--force`). Moving an enrolled agent to another policy is done in Fleet
+  (*Assign to new policy*), not by changing `elastic_agent_policy_id`.
+- **Data path:** every policy's default output is Logstash
+  (`logstash-ingest`): the agent sends over mTLS with the shared client
+  certificate, Logstash writes to Elasticsearch.
+- **Health check:** Fleet's agent list has an `online` agent for every host
+  in the inventory, Fleet Server's included.
 
 ## The AI agent
 

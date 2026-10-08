@@ -1,0 +1,8 @@
+---
+# Every VM except Fleet Server's (40-fleet-server.yml), into its role's
+# policy. After the Fleet config stack and Fleet Server.
+- name: Elastic Agents
+  hosts: all:!fleet_server
+  gather_facts: false
+  roles:
+    - elastic_agent

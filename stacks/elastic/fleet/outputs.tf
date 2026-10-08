@@ -6,7 +6,7 @@ output "fleet_server_url" {
 output "agent_policies" {
   value = {
     fleet_server = elasticstack_fleet_agent_policy.fleet_server.policy_id
-    vms          = elasticstack_fleet_agent_policy.vms.policy_id
+    agents       = [for policy in elasticstack_fleet_agent_policy.agents : policy.policy_id]
   }
   description = "Agent policy IDs Ansible enrolls into"
 }

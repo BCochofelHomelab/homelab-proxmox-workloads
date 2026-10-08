@@ -140,3 +140,30 @@
       become: false
       register: _fleet_status
       failed_when: _fleet_status.json.status | default('') != 'HEALTHY'
+
+# From Fleet's side: every host in the inventory (Fleet Server's included)
+# has an online agent.
+- name: Elastic Agents health check
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: List Fleet's agents
+      ansible.builtin.uri:
+        url: "https://{{ hostvars[groups['kibana_server'][0]].ansible_host }}:5601/api/fleet/agents?perPage=100"
+        ca_path: "{{ elastic_ca_cert }}"
+        url_username: elastic
+        url_password: "{{ elastic_password }}"
+        force_basic_auth: true
+      delegate_to: localhost
+      become: false
+      run_once: true
+      register: _fleet_agents
+
+    - name: Check this host's agent is online in Fleet
+      ansible.builtin.assert:
+        that: >-
+          inventory_hostname in (_fleet_agents.json['items']
+            | selectattr('status', 'equalto', 'online')
+            | map(attribute='local_metadata.host.hostname') | list)
+        fail_msg: "{{ inventory_hostname }} has no online agent in Fleet."
+        quiet: true
