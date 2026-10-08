@@ -1,0 +1,20 @@
+---
+# kibana_public_url: group_vars/kibana_server.yml.
+# kibana_system_password, kibana_encryption_key: group_vars/elastic.sops.yaml.
+kibana_port: 5601
+kibana_config_dir: /etc/kibana
+kibana_certs_dir: "{{ kibana_config_dir }}/certs"
+kibana_keystore: "{{ kibana_config_dir }}/kibana.keystore"
+
+# Secrets Kibana reads from its keystore. Three encryption keys: saved
+# objects (Fleet's secrets, alerting: losing it loses those), sessions and
+# reporting. Only the first is stored; the other two are derived from it,
+# so they're stable across runs without two more secrets.
+kibana_keystore_entries:
+  elasticsearch.password: "{{ kibana_system_password }}"
+  xpack.encryptedSavedObjects.encryptionKey: "{{ kibana_encryption_key }}"
+  xpack.security.encryptionKey: "{{ (kibana_encryption_key ~ ':security') | hash('sha256') }}"
+  xpack.reporting.encryptionKey: "{{ (kibana_encryption_key ~ ':reporting') | hash('sha256') }}"
+
+kibana_status_retries: 60
+kibana_status_delay: 10

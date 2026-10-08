@@ -84,7 +84,7 @@ mise run sops -- ansible/inventory/group_vars/<group>.sops.yaml
 
 | File | Keys | Used by |
 | --- | --- | --- |
-| `elastic.sops.yaml` (group `elastic`) | `elastic_password` | Elasticsearch ([`ANSIBLE.md`](ANSIBLE.md#secrets)); later Kibana and Logstash add theirs |
+| `elastic.sops.yaml` (group `elastic`) | `elastic_password`, `kibana_system_password`, `kibana_encryption_key` | Elasticsearch and Kibana ([`ANSIBLE.md`](ANSIBLE.md#secrets)); Logstash will add its own |
 
 ### Internal CA key
 
