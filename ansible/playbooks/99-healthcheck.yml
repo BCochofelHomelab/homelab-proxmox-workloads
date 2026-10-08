@@ -88,3 +88,42 @@
       become: false
       register: _kibana_public
       ignore_errors: true
+
+- name: Logstash health check
+  hosts: logstash
+  gather_facts: false
+  tasks:
+    - name: Check the Elastic Agent pipeline is running
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9600/_node/pipelines/elastic-agent
+      become: true
+      register: _logstash_pipeline
+      failed_when: >-
+        _logstash_pipeline.status != 200
+        or 'elastic-agent' not in (_logstash_pipeline.json.pipelines | default({}))
+
+    - name: Check Logstash runs {{ elastic_version }}
+      ansible.builtin.assert:
+        that: _logstash_pipeline.json.version == elastic_version
+        fail_msg: "Logstash runs {{ _logstash_pipeline.json.version }}, expected {{ elastic_version }}."
+        quiet: true
+
+    # From the controller, like an agent: the port answers and presents a
+    # certificate that verifies against the internal CA.
+    - name: Check the agent port presents a certificate from the internal CA
+      ansible.builtin.command:
+        argv:
+          - openssl
+          - s_client
+          - -connect
+          - "{{ ansible_host }}:5044"
+          - -CAfile
+          - "{{ elastic_ca_cert }}"
+          - -verify_return_error
+          - -brief
+        stdin: ""
+      delegate_to: localhost
+      become: false
+      register: _logstash_tls
+      changed_when: false
+      failed_when: "'Verification: OK' not in _logstash_tls.stderr"

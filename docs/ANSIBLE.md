@@ -34,6 +34,7 @@ inventory secrets and the CA key only while a task needs them.
 | `group_vars/all.yml` | `elastic_version` (every Elastic package), the APT repository, the CA paths, the Elasticsearch ports and endpoints |
 | `group_vars/elasticsearch.yml` | Cluster name, heap, the data disk's mount point |
 | `group_vars/kibana_server.yml` | Kibana's public URL (through core's Caddy) |
+| `group_vars/logstash.yml` | The data disk's mount point, heap, the agents' port |
 | `group_vars/elastic.sops.yaml` | Secrets for the Elastic stack, SOPS-encrypted (below) |
 
 ## Playbooks
@@ -43,7 +44,8 @@ inventory secrets and the CA key only while a task needs them.
 | `00-bootstrap.yml` | Preflight checks (`common`), then formats and mounts each data disk (`data_disk`) before any service is installed |
 | `10-elasticsearch.yml` | Elastic's APT repository (`elastic_repo`), then Elasticsearch (`elasticsearch`) on every node; waits for green; rolling restart of nodes whose configuration changed |
 | `20-kibana.yml` | Kibana (`kibana`): `kibana_system`'s password, package, certificate, keystore, configuration; waits until available |
-| `99-healthcheck.yml` | From the controller, over TLS verified against the CA: every Elasticsearch node answers as `elastic` and runs `elastic_version`, the cluster is green with every node, Kibana is available and runs `elastic_version`. Kibana through core's Caddy is reported without failing the run |
+| `30-logstash.yml` | Logstash (`logstash`): the `logstash_writer` role and user, package, certificate, the Elastic Agent pipeline; waits until it runs and listens |
+| `99-healthcheck.yml` | From the controller, over TLS verified against the CA: every Elasticsearch node answers as `elastic` and runs `elastic_version`, the cluster is green with every node, Kibana is available and runs `elastic_version`. Kibana through core's Caddy is reported without failing the run. Logstash's agent pipeline runs on `elastic_version`, and its port presents a certificate that verifies against the CA |
 
 ## Secrets
 
@@ -55,6 +57,7 @@ your age key only, never to the AI agent's:
 | `elastic_password` | The `elastic` superuser (12+ characters) |
 | `kibana_system_password` | The built-in `kibana_system` user Kibana connects as (12+ characters) |
 | `kibana_encryption_key` | Kibana's saved-objects encryption key (32+ characters). Fleet and alerting secrets are encrypted with it: changing or losing it makes them unreadable. Kibana's session and reporting keys are derived from it. |
+| `logstash_writer_password` | The `logstash_writer` user Logstash writes to Elasticsearch as (12+ characters) |
 
 Create the file once, from the repo root (`.sops.yaml` applies there),
 with a generated password that's never shown:
@@ -76,7 +79,12 @@ mise run sops -- set ansible/inventory/group_vars/elastic.sops.yaml \
 ```
 
 See or edit the values with `mise run sops -- ansible/inventory/group_vars/elastic.sops.yaml`.
-Logstash's credentials will be added the same way.
+For example, Logstash's:
+
+```bash
+mise run sops -- set ansible/inventory/group_vars/elastic.sops.yaml \
+  '["logstash_writer_password"]' "\"$(openssl rand -base64 24)\""
+```
 
 ## Internal CA
 
@@ -96,6 +104,23 @@ controller with the CA key, decrypted by the `community.sops` lookup for
 that task only. Certificates are valid for 2 years, carry the host's
 short name, FQDN, `localhost` and its IPs, and are re-issued when they
 expire within 30 days (re-run the playbook).
+
+### The agents' client certificate
+
+Logstash only accepts clients with a certificate from the internal CA
+(mTLS). Fleet's Logstash output holds **one** client certificate that every
+Elastic Agent presents, so it's issued once, by `mise run pki:agent-client`:
+
+- `ansible/pki/agent-client.crt`: `CN=elastic-agent`, client
+  authentication only, valid 2 years, committed;
+- `ansible/pki/agent-client.key.sops`: its key, SOPS-encrypted to your age
+  key only, committed.
+
+The key is held in memory, piped into `sops` and never written in clear.
+The task refuses to replace an existing certificate: delete both files and
+run it again to renew. The Fleet config stack sets both in Fleet's
+Logstash output, so the key also ends up in Fleet and in that stack's
+state.
 
 Clients outside the cluster trust `ansible/pki/elastic-ca.crt`, for
 example `curl --cacert ansible/pki/elastic-ca.crt -u elastic https://192.168.68.30:9200`.
@@ -152,6 +177,32 @@ new cluster.
   what was written (`/etc/kibana/.keystore.sha256`, root-only) tells the
   next run whether they changed; then they're rewritten and Kibana
   restarts.
+
+## Logstash
+
+- **Package:** `logstash=1:<elastic_version>-1` (Logstash's DEB has an
+  epoch), held.
+- **Data:** `path.data` is `/var/lib/logstash`, the 50 GB data disk,
+  which also holds the persistent queue (`logstash_queue_max_bytes`,
+  20 GB): it buffers while Elasticsearch is unreachable and survives a
+  restart.
+- **Agents in:** the `elastic-agent` pipeline's Elastic Agent input on
+  port 5044, TLS with Logstash's own certificate from the internal CA, and
+  `ssl_client_authentication => required`: only clients with a certificate
+  from that CA (the agents' shared one) get in.
+- **Elasticsearch out:** every Elasticsearch node, verified against the
+  CA, as `logstash_writer`, into the data stream each event names
+  (`data_stream => true`). The integrations' ingest pipelines run in
+  Elasticsearch on arrival. `logstash_writer`'s role only creates
+  documents in `logs-*-*`, `metrics-*-*`, `traces-*-*`, `synthetics-*-*`
+  and `profiling-*`; the playbook creates the role and user (as `elastic`)
+  and resets the password when it no longer authenticates.
+- **Secrets:** the writer's password reaches the pipeline as
+  `${LOGSTASH_WRITER_PASSWORD}`, from `/etc/default/logstash` (root-only,
+  the unit's `EnvironmentFile`), never in a pipeline file. The heap
+  (`logstash_heap_size`, 1 GB) is set there too, as `LS_JAVA_OPTS`.
+- **Pipelines:** files reload on change (`config.reload.automatic`), no
+  restart; settings, the environment file and certificates restart it.
 
 ## The AI agent
 

@@ -1,0 +1,12 @@
+---
+# Logstash on the ingest VM (hand-authored).
+
+# The 50 GB data disk (stacks/elastic/infra, scsi1) holds path.data,
+# including the persistent queue.
+data_disk_mount_point: /var/lib/logstash
+
+# JVM heap: the VM has 4 GB, shared with the EDOT Collector gateway.
+logstash_heap_size: 1g
+
+# Port every Elastic Agent sends to (Fleet's Logstash output).
+logstash_agent_port: 5044

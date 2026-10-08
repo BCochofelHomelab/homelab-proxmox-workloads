@@ -1,0 +1,13 @@
+# {{ ansible_managed }}
+# Logstash {{ elastic_version }} on {{ inventory_hostname }}.
+
+path.data: {{ logstash_data_dir }}
+path.logs: /var/log/logstash
+
+# Monitoring API on localhost only (Ansible's checks).
+api.http.host: 127.0.0.1
+api.http.port: 9600
+
+# Pipeline files reload on change, without restarting Logstash.
+config.reload.automatic: true
+config.reload.interval: 30s
