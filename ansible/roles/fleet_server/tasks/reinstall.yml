@@ -3,7 +3,7 @@
 # Elastic's tarball, checked like the Packer template's install: SHA-512,
 # and the signature against Elastic's key (the keyring elastic_repo
 # installed, verified by fingerprint). `install` enrolls as Fleet Server
-# and waits for it to start. Expects /root/.fleet-server-service-token.
+# and waits for it to start. Expects the token in fleet_server_token_file.
 
 - name: Create the download directory
   ansible.builtin.file:

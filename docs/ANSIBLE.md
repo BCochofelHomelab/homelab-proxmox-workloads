@@ -220,9 +220,11 @@ new cluster.
   re-enroll (`--force`); healthy → nothing.
 - **Policy:** `fleet-server-policy`, created by `stacks/elastic/fleet`; the
   playbook stops with a pointer to it if the policy doesn't exist yet.
-- **Enrollment:** a fresh `elastic/fleet-server` service token (created as
-  `elastic`, named `<host>-fleet-server`), handed to the agent as a
-  root-only file that's removed afterwards, never on the command line.
+- **Service token:** a fresh `elastic/fleet-server` service token at each
+  enrollment (created as `elastic`, named `<host>-fleet-server`), in
+  `/etc/fleet-server/service-token` (root-only), never on the command line.
+  The agent stores that *path* and Fleet Server reads the file at every
+  start, so it stays there.
 - **TLS:** listens on `https://192.168.68.33:8220` with a certificate from
   the internal CA (`/etc/fleet-server/certs`, root-only), and verifies
   Elasticsearch against the CA. A new certificate restarts the agent.

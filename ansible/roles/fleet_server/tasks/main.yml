@@ -107,10 +107,11 @@
       no_log: true
 
     # A root-only file, not a command-line argument (visible in `ps`).
-    - name: Write the token for the agent
+    # Fleet Server reads it at every start: it's never removed.
+    - name: Write the token for Fleet Server
       ansible.builtin.copy:
         content: "{{ _fleet_token.json.token.value }}"
-        dest: /root/.fleet-server-service-token
+        dest: "{{ fleet_server_token_file }}"
         owner: root
         group: root
         mode: "0600"
@@ -136,13 +137,6 @@
             argv: "{{ ['/usr/bin/elastic-agent', 'enroll'] + fleet_server_enroll_args }}"
           become: true
           changed_when: true
-
-  always:
-    - name: Remove the token file
-      ansible.builtin.file:
-        path: /root/.fleet-server-service-token
-        state: absent
-      become: true
 
 - name: Keep the agent running and enabled at boot
   ansible.builtin.systemd_service:
