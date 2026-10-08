@@ -15,5 +15,7 @@
   import_playbook: 40-fleet-server.yml
 - name: Elastic Agents
   import_playbook: 50-elastic-agents.yml
+- name: OpenTelemetry Demo
+  import_playbook: 60-otel-demo.yml
 - name: Health check
   import_playbook: 99-healthcheck.yml

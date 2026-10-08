@@ -1,0 +1,103 @@
+---
+# Runs the upstream OpenTelemetry Demo's core services with Docker Compose,
+# its own collector exporting traces, metrics and logs to the EDOT
+# Collector gateway over mTLS (a client certificate from the internal CA,
+# its key generated on this VM). Containers restart with Docker at boot
+# (upstream's `restart: unless-stopped`).
+
+- name: Check out the OpenTelemetry Demo {{ otel_demo_version }}
+  ansible.builtin.git:
+    repo: "{{ otel_demo_repo }}"
+    dest: "{{ otel_demo_dir }}"
+    version: "{{ otel_demo_version }}"
+    depth: 1
+    single_branch: true
+  become: true
+
+- name: Create the configuration directory
+  ansible.builtin.file:
+    path: "{{ otel_demo_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+# -- Client certificate for the gateway's mTLS ------------------------------------
+
+- name: Issue the demo collector's client certificate
+  ansible.builtin.include_role:
+    name: elastic_pki
+  vars:
+    pki_cert_dir: "{{ otel_demo_certs_dir }}"
+    pki_name: client
+    pki_extended_key_usage: [clientAuth]
+
+# -- Our settings ---------------------------------------------------------------------
+
+- name: Write the environment overrides
+  ansible.builtin.template:
+    src: env.homelab.j2
+    dest: "{{ otel_demo_config_dir }}/env.homelab"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: Write the Compose override
+  ansible.builtin.template:
+    src: compose.homelab.yaml.j2
+    dest: "{{ otel_demo_config_dir }}/compose.homelab.yaml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: Write the collector's export to the gateway
+  ansible.builtin.template:
+    src: otelcol-config-homelab.yml.j2
+    dest: "{{ otel_demo_config_dir }}/otelcol-config-homelab.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  register: _otel_demo_collector
+
+# -- Run -----------------------------------------------------------------------------
+
+# Pulls the release's images (never builds), creates what's missing and
+# recreates containers whose definition changed.
+- name: Bring up the OpenTelemetry Demo
+  community.docker.docker_compose_v2:
+    project_name: otel-demo
+    project_src: "{{ otel_demo_dir }}"
+    files: "{{ otel_demo_compose_files }}"
+    env_files: "{{ otel_demo_env_files }}"
+    pull: missing
+    build: never
+    remove_orphans: true
+    state: present
+  become: true
+
+# Bind-mounted files and certificates aren't part of the container's
+# definition: Compose doesn't see their changes.
+- name: Restart the demo's collector if its configuration or certificate changed
+  community.docker.docker_compose_v2:
+    project_name: otel-demo
+    project_src: "{{ otel_demo_dir }}"
+    files: "{{ otel_demo_compose_files }}"
+    env_files: "{{ otel_demo_env_files }}"
+    services: [otel-collector]
+    state: restarted
+  become: true
+  when: _otel_demo_collector.changed or pki_changed
+
+- name: Wait for the web store to answer on {{ otel_demo_frontend_port }}
+  ansible.builtin.uri:
+    url: http://{{ ansible_host }}:{{ otel_demo_frontend_port }}/
+  delegate_to: localhost
+  become: false
+  register: _otel_demo_frontend
+  until: _otel_demo_frontend.status == 200
+  retries: 30
+  delay: 10

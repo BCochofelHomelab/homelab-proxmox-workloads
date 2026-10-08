@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+# Loaded after upstream's compose.yaml. The demo's collector gets this
+# VM's client certificate for the gateway's mTLS (read as root, the
+# container's user).
+services:
+  otel-collector:
+    volumes:
+      - {{ otel_demo_certs_dir }}:/etc/otelcol-certs:ro

@@ -1,0 +1,9 @@
+---
+# After the EDOT gateway (35), the demo's backend. Docker from Docker's
+# APT repository first: the template has none (packer/ubuntu-26.04 ADR-5).
+- name: OpenTelemetry Demo
+  hosts: otel_demo
+  gather_facts: true
+  roles:
+    - docker
+    - otel_demo
