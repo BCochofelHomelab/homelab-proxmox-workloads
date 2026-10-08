@@ -17,6 +17,7 @@ before applying; never `destroy` from a task.
 | `stacks/elastic/infra` | `infra`, `elastic` | `es-01`..`es-03` (`.30`–`.32`), `kibana` (`.33`), `ingest` (`.34`) | `ansible/inventory/elastic.ini` |
 | `stacks/otel-demo/infra` | `infra`, `otel-demo` | `otel-demo` (`.35`) | `ansible/inventory/otel-demo.ini` |
 | `stacks/elastic/cluster` | `config`, `elastic` | — (Elasticsearch configuration, below) | — |
+| `stacks/elastic/fleet` | `config`, `elastic` | — (Fleet configuration, below) | — |
 
 All IPs are in `192.168.68.0/22`; `.30`–`.39` is reserved for the Elastic
 stack and its demo workloads.
@@ -39,12 +40,43 @@ configuration that changes often lives in separate `config` stacks under
 | Config stack | Manages |
 | --- | --- |
 | `stacks/elastic/cluster` | ILM policy `homelab-30d` (hot 7 days, cold until day 30, then deleted) and the `logs@custom`, `metrics@custom`, `traces@custom` component templates that apply it |
-| `stacks/elastic/fleet` (next) | Fleet outputs (Elasticsearch, Logstash), Fleet Server host, agent and integration policies |
+| `stacks/elastic/fleet` | Fleet outputs (Elasticsearch, Logstash over mTLS), the Fleet Server host, the `fleet-server-policy` and `homelab-vms` agent policies and their integrations |
 | `stacks/elastic/kibana` (later) | Spaces, data views, dashboards |
 
 Logstash pipelines are files deployed by Ansible, not OpenTofu: managing
 them through Elasticsearch needs centralized pipeline management, a paid
 subscription feature.
+
+### Fleet (`stacks/elastic/fleet`)
+
+```text
+agents ──mTLS──> Logstash (ingest:5044) ──> Elasticsearch   default output
+Fleet Server (kibana:8220) ─────────────> Elasticsearch     its own policy
+```
+
+| Resource | Is |
+| --- | --- |
+| Output `logstash-ingest` | **Default** for data and monitoring. `192.168.68.34:5044`, verifies Logstash against the CA, presents the agents' client certificate (`ansible/pki/agent-client.*`; the key decrypted by the `sops` provider with your age key) |
+| Output `fleet-default-output` | Fleet's own Elasticsearch output, adopted with an `import` block: every node, verified against the CA. Used by Fleet Server's policy |
+| Fleet Server host `fleet-server-kibana` | `https://192.168.68.33:8220`, the default |
+| Agent policy `fleet-server-policy` | `fleet_server` and `system` integrations; Ansible enrolls the kibana VM's agent into it as Fleet Server |
+| Agent policy `homelab-vms` | `system` integration; every other VM's agent |
+| Packages | `fleet_server` 1.6.1, `system` 3.0.0 (compatible with Kibana 9.5.4), kept on destroy |
+
+**Order.** Fleet Server only works with an Elasticsearch output, and the
+Basic licence has no per-policy outputs (Platinum). Fleet refuses to add
+the Fleet Server integration to a policy whose output is Logstash, but a
+policy that already has it keeps Elasticsearch when the default output
+changes ([Elastic discuss](https://discuss.elastic.co/t/unable-to-create-fleet-server-with-default-logstash-output/373663)).
+So the Logstash output, the one that becomes default, `depends_on` the
+Fleet Server policy's integrations. Recreating that policy later would
+fail while Logstash is the default.
+
+**Prerequisites:** Fleet's setup has run (the `kibana` role does it, which
+creates `fleet-default-output` for the `import`), and
+`ansible/pki/agent-client.*` exists (`mise run pki:agent-client`). Its
+extra provider (`carlpett/sops`) comes from the `elastic_extra_providers`
+global in its `stack.tm.hcl`: a module has one `required_providers`.
 
 ### Retention (`stacks/elastic/cluster`)
 

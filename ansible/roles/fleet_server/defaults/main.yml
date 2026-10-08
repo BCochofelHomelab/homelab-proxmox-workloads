@@ -1,0 +1,9 @@
+---
+# fleet_server_policy_id, fleet_server_port: group_vars/fleet_server.yml.
+# Elastic Agent runs as root: its certificates are root-only.
+fleet_server_certs_dir: /etc/fleet-server/certs
+fleet_server_url: "https://{{ ansible_host }}:{{ fleet_server_port }}"
+# Name of the elastic/fleet-server service token used to enroll.
+fleet_server_token_name: "{{ inventory_hostname }}-fleet-server"
+# Kibana's Fleet API (same VM).
+fleet_server_kibana_url: "https://{{ ansible_host }}:5601"

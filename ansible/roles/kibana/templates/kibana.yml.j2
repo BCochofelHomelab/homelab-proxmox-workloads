@@ -21,6 +21,11 @@ elasticsearch.username: kibana_system
 elasticsearch.ssl.certificateAuthorities: [{{ kibana_certs_dir }}/ca.crt]
 elasticsearch.ssl.verificationMode: full
 
+# Kibana's legacy self-monitoring posts to Elasticsearch's _monitoring/bulk,
+# deprecated for removal in 10.0 (CRITICAL in the deprecation log). Stack
+# monitoring comes from Elastic Agent integrations instead.
+monitoring.kibana.collection.enabled: false
+
 logging:
   appenders:
     file:

@@ -127,3 +127,16 @@
       register: _logstash_tls
       changed_when: false
       failed_when: "'Verification: OK' not in _logstash_tls.stderr"
+
+- name: Fleet Server health check
+  hosts: fleet_server
+  gather_facts: false
+  tasks:
+    - name: Check Fleet Server is healthy over verified TLS
+      ansible.builtin.uri:
+        url: "https://{{ ansible_host }}:{{ fleet_server_port }}/api/status"
+        ca_path: "{{ elastic_ca_cert }}"
+      delegate_to: localhost
+      become: false
+      register: _fleet_status
+      failed_when: _fleet_status.json.status | default('') != 'HEALTHY'

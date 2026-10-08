@@ -50,6 +50,7 @@ stack's path (`terramate.tm.hcl`, `hcp_workspace`):
 | `stacks/elastic/infra` | `workloads-elastic-infra` |
 | `stacks/otel-demo/infra` | `workloads-otel-demo-infra` |
 | `stacks/elastic/cluster` | `workloads-elastic-cluster` |
+| `stacks/elastic/fleet` | `workloads-elastic-fleet` |
 
 Create each one as in core's step 2 before its first `tofu:init`:
 **CLI-driven**, then *Settings → General → Execution Mode* → **Local**

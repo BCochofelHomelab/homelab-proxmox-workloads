@@ -1,0 +1,7 @@
+---
+# After the Fleet config stack (stacks/elastic/fleet) has created the policy.
+- name: Fleet Server
+  hosts: fleet_server
+  gather_facts: false
+  roles:
+    - fleet_server

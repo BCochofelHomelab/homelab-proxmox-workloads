@@ -9,5 +9,7 @@
   import_playbook: 20-kibana.yml
 - name: Logstash
   import_playbook: 30-logstash.yml
+- name: Fleet Server
+  import_playbook: 40-fleet-server.yml
 - name: Health check
   import_playbook: 99-healthcheck.yml

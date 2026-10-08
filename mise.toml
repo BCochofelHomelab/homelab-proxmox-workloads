@@ -341,7 +341,7 @@ pve="${PKR_VAR_proxmox_api_url%/}"
 check "Proxmox token packer@pve!packer" "$pve/version" < <(printf "Authorization: PVEAPIToken=%s=%s\n" "$PKR_VAR_proxmox_api_token_id" "$PKR_VAR_proxmox_api_token_secret")
 check "Proxmox token terraform (TF_VAR_proxmox_api_token)" "$pve/version" < <(printf "Authorization: PVEAPIToken=%s\n" "$TF_VAR_proxmox_api_token")
 # One workspace per stack (terramate.tm.hcl: hcp_workspace).
-for ws in workloads-elastic-infra workloads-otel-demo-infra workloads-elastic-cluster; do
+for ws in workloads-elastic-infra workloads-otel-demo-infra workloads-elastic-cluster workloads-elastic-fleet; do
   check "HCP token, workspace homelab-bcochofel-com/$ws" "https://app.terraform.io/api/v2/organizations/homelab-bcochofel-com/workspaces/$ws" < <(printf "Authorization: Bearer %s\n" "$TF_TOKEN_app_terraform_io")
 done
 present PKR_VAR_password_hash "$PKR_VAR_password_hash"

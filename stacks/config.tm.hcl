@@ -14,11 +14,15 @@ generate_hcl "_terramate_generated_backend.tf" {
     terraform {
       required_version = "> 1.9.0, < 2.0"
 
-      required_providers {
-        elasticstack = {
-          source  = "elastic/elasticstack"
-          version = "~> 0.16.5"
-        }
+      # elasticstack, plus any provider a stack adds through the
+      # elastic_extra_providers global (one required_providers per module).
+      tm_dynamic "required_providers" {
+        attributes = tm_merge({
+          elasticstack = {
+            source  = "elastic/elasticstack"
+            version = "~> 0.16.5"
+          }
+        }, global.elastic_extra_providers)
       }
 
       # HCP Terraform, state only (execution mode Local), as for the infra

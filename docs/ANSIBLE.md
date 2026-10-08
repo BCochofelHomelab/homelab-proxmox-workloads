@@ -45,6 +45,7 @@ inventory secrets and the CA key only while a task needs them.
 | `10-elasticsearch.yml` | Elastic's APT repository (`elastic_repo`), then Elasticsearch (`elasticsearch`) on every node; waits for green; rolling restart of nodes whose configuration changed |
 | `20-kibana.yml` | Kibana (`kibana`): `kibana_system`'s password, package, certificate, keystore, configuration; waits until available |
 | `30-logstash.yml` | Logstash (`logstash`): the `logstash_writer` role and user, package, certificate, the Elastic Agent pipeline; waits until it runs and listens |
+| `40-fleet-server.yml` | Fleet Server (`fleet_server`): enrolls the kibana VM's agent into `fleet-server-policy`, once; waits until healthy. Needs the Fleet config stack applied |
 | `99-healthcheck.yml` | From the controller, over TLS verified against the CA: every Elasticsearch node answers as `elastic` and runs `elastic_version`, the cluster is green with every node, Kibana is available and runs `elastic_version`. Kibana through core's Caddy is reported without failing the run. Logstash's agent pipeline runs on `elastic_version`, and its port presents a certificate that verifies against the CA |
 
 ## Secrets
@@ -203,6 +204,24 @@ new cluster.
   (`logstash_heap_size`, 1 GB) is set there too, as `LS_JAVA_OPTS`.
 - **Pipelines:** files reload on change (`config.reload.automatic`), no
   restart; settings, the environment file and certificates restart it.
+
+## Fleet Server
+
+- **Agent:** the one the Packer template installed (tarball,
+  Fleet-upgradable), enrolled as Fleet Server into `fleet-server-policy`
+  (created by `stacks/elastic/fleet`; the playbook stops with a pointer to
+  it if the policy doesn't exist yet). Enrolled once: an agent with
+  `/opt/Elastic/Agent/fleet.enc` is left as is.
+- **Enrollment:** a fresh `elastic/fleet-server` service token (created as
+  `elastic`, named `<host>-fleet-server`), handed to `elastic-agent enroll`
+  as a root-only file that's removed afterwards, never on the command line.
+- **TLS:** listens on `https://192.168.68.33:8220` with a certificate from
+  the internal CA (`/etc/fleet-server/certs`, root-only), and verifies
+  Elasticsearch against the CA. A new certificate restarts the agent.
+- **Kibana:** the `kibana` role runs Fleet's setup (`POST /api/fleet/setup`),
+  and turns off Kibana's legacy self-monitoring
+  (`monitoring.kibana.collection.enabled: false`), whose `_monitoring/bulk`
+  API is deprecated for removal in 10.0.
 
 ## The AI agent
 
