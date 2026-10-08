@@ -280,7 +280,8 @@ APM UI.
   at boot.
 - **Settings:** the checkout is never modified. Ours are in
   `/etc/otel-demo`, loaded after upstream's files: `env.homelab` (versions,
-  the collector extras path), `compose.homelab.yaml` (the client
+  `deployment.environment.name=homelab` for APM's Environment, the
+  collector extras path), `compose.homelab.yaml` (the client
   certificate into the demo's collector) and `otelcol-config-homelab.yml`,
   upstream's extras seam for the collector. It adds an OTLP gRPC exporter
   to the gateway and makes it the only exporter of traces (with the

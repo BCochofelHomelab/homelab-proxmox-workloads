@@ -16,6 +16,8 @@ otel_demo_compose_files:
 otel_demo_env_files:
   - "{{ otel_demo_dir }}/.env"
   - "{{ otel_demo_config_dir }}/env.homelab"
+# deployment.environment.name: the Environment in Kibana's APM UI.
+otel_demo_environment: homelab
 # The web store (frontend-proxy, upstream's ENVOY_PORT).
 otel_demo_frontend_port: 8080
 
