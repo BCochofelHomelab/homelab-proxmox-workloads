@@ -65,11 +65,14 @@ password are core's `TF_VAR_proxmox_api_token` and `TF_VAR_cipassword`.
 
 The `config` stacks (ILM, Fleet, Kibana; [`TERRAFORM.md`](TERRAFORM.md))
 authenticate with one Elasticsearch API key, which Kibana and Fleet
-accept too. It's yours only: `ELASTICSEARCH_API_KEY` in
-`~/.secrets/homelab.yaml`, never in `homelab-ro.yaml`.
+accept too. It's **yours**, used by OpenTofu when you run
+`mise run tofu:plan` / `tofu:apply` on them: read-write, in
+`~/.secrets/homelab.yaml` as `ELASTICSEARCH_API_KEY`, never in
+`homelab-ro.yaml`. It is **not** the AI agent's key: the agent's Elastic
+access (the Elastic MCP) gets its own read-only key.
 
 1. In Kibana, as `elastic`: *Stack Management → API keys → Create API
-   key*, name `opentofu`, type *User API key*, no expiration, and leave
+   key*, name `tofu-config-stacks`, type *User API key*, no expiration, and leave
    *Control security privileges* off: the key then has `elastic`'s own
    privileges, which these stacks need (index templates, ILM, Fleet,
    Kibana spaces).

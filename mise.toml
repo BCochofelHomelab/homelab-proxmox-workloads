@@ -301,7 +301,10 @@ done
 present PKR_VAR_password_hash "$PKR_VAR_password_hash"
 present TF_VAR_cipassword "$TF_VAR_cipassword"
 # API key of the config stacks (stacks/config.tm.hcl): Elasticsearch, Kibana, Fleet.
-check "Elasticsearch API key (ELASTICSEARCH_API_KEY), es-01" "https://192.168.68.30:9200/_security/_authenticate" < <(printf "Authorization: ApiKey %s\n" "$ELASTICSEARCH_API_KEY")
+present ELASTICSEARCH_API_KEY "$ELASTICSEARCH_API_KEY"
+if [ -n "$ELASTICSEARCH_API_KEY" ]; then
+  check "Elasticsearch API key (ELASTICSEARCH_API_KEY), es-01" "https://192.168.68.30:9200/_security/_authenticate" < <(printf "Authorization: ApiKey %s\n" "$ELASTICSEARCH_API_KEY")
+fi
 exit $rc'"'" || rc=1
 
 echo "== ~/.secrets/homelab-ro.yaml (ai-agent key only)"
