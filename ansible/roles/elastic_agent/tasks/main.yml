@@ -4,6 +4,15 @@
 # of the VM's role (elastic_agent_policy_id). An agent that's enrolled and
 # connected is left alone: moving it to another policy is done in Fleet.
 
+- name: Create the directory for the agent's CA
+  ansible.builtin.file:
+    path: "{{ elastic_agent_ca | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
 - name: Install the internal CA for the agent (Fleet Server's certificate)
   ansible.builtin.copy:
     src: "{{ elastic_ca_cert }}"
