@@ -48,7 +48,7 @@ inventory secrets and the CA key only while a task needs them.
 | `35-edot-gateway.yml` | EDOT Collector gateway (`edot_gateway`) on the ingest VM: the `edot_writer` role and user, Elastic's verified tarball, certificate, configuration (validated), systemd unit; waits until healthy and listening |
 | `40-fleet-server.yml` | Fleet Server (`fleet_server`): enrolls the kibana VM's agent into `fleet-server-policy`, once; waits until healthy. Needs the Fleet config stack applied |
 | `50-elastic-agents.yml` | Every other VM's Elastic Agent (`elastic_agent`): enrolled into its role's policy, once; waits until connected |
-| `60-otel-demo.yml` | The OpenTelemetry Demo VM: Docker from Docker's APT repository (`docker`), then the demo (`otel_demo`): pinned checkout, client certificate, settings, Compose up; waits for the web store |
+| `60-otel-demo.yml` | The OpenTelemetry Demo VM: IPv6 back in the kernel, rebooting once (`kernel_ipv6`), Docker from Docker's APT repository (`docker`), then the demo (`otel_demo`): pinned checkout, client certificate, settings, Compose up; waits for the web store |
 | `99-healthcheck.yml` | From the controller, over TLS verified against the CA: every Elasticsearch node answers as `elastic` and runs `elastic_version`, the cluster is green with every node, Kibana is available and runs `elastic_version`. Kibana through core's Caddy is reported without failing the run. Logstash's agent pipeline runs on `elastic_version`, and its port presents a certificate that verifies against the CA. The EDOT Collector is healthy, runs `elastic_version`, and its OTLP port accepts a sender with a CA-signed certificate and refuses one without. The OTel Demo's web store answers, and its traces reach Elasticsearch through the gateway |
 
 ## Secrets
@@ -265,6 +265,12 @@ APM UI.
   `packer/ubuntu-26.04` ADR-5): Docker Engine and the Compose plugin from
   Docker's APT repository, trusted only for Docker's key, checked by
   fingerprint first.
+- **IPv6:** the template boots with `ipv6.disable=1`, and two of the
+  demo's nginx-based services (`image-provider`, `telemetry-docs`) listen
+  on `[::]` and won't start without it. `kernel_ipv6` removes the boot
+  parameter (one reboot, the first time) and keeps the VM's own interfaces
+  IPv4-only with `sysctl` (`/etc/sysctl.d/60-ipv6-host-off.conf`);
+  containers have their own network namespaces.
 - **Version:** a checkout of the release tag (`otel_demo_version`, 3.1.0)
   in `/opt/otel-demo`, and that release's images (`DEMO_VERSION`, instead
   of upstream's `latest`). Images are pulled, never built.

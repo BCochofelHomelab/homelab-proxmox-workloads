@@ -1,0 +1,7 @@
+galaxy_info:
+  author: Bruno Cochofel
+  description: Re-enables IPv6 in the kernel (the template boots with ipv6.disable=1) while keeping the host's own interfaces IPv4-only
+  license: MIT
+  min_ansible_version: "2.15"
+  galaxy_tags: []
+dependencies: []

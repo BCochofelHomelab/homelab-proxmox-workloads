@@ -74,12 +74,13 @@ listeners, on different ports:
         `data_stream_dataset => syslog.<source>` (set from the sender's
         IP via a lookup table, e.g. `deco`, `misc`),
         `data_stream_namespace => default`
-      - check the Logstash writer role can create `logs-syslog.*`
-        (`stacks/elastic/cluster`)
+      - `logstash_writer` can already create `logs-syslog.*-*`: its role
+        (`roles/logstash/defaults/main.yml`) covers `logs-*-*`
       - new `group_vars/logstash.yml` vars: `logstash_syslog_port`, the
         IP-to-source map
-- [ ] Open both ports on the ingest VM's firewall (ufw or Proxmox
-      firewall, if either is on) to `192.168.68.0/22` only.
+- [ ] Firewall: the VMs run no host firewall, so nothing to open there.
+      Check Proxmox's firewall isn't enabled for the ingest VM; if it is,
+      or one is added later, allow both ports from `192.168.68.0/22` only.
 - [ ] Alternative for the catch-all: the `syslog_router` package (1.0.1,
       GA) on the agent instead of Logstash. It routes one syslog listener
       to several integrations by matching the message. Worth it only if
@@ -240,13 +241,15 @@ Which devices can be polled:
       `collection_interval: 60s`, `metrics:` with `scalar_oids` /
       `column_oids` and `resource_attributes` for disk/volume index), into
       the existing metrics pipeline. Vars in
-      `group_vars/edot_gateway.yml`, secrets via env from SOPS like the
-      existing exporter credentials.
-- [ ] Check the gateway's Elasticsearch API key/role can write the
-      resulting `metrics-*` data stream.
+      `group_vars/edot_gateway.yml`; the SNMPv3 secrets reach the collector
+      as environment variables from `/etc/default/edot-collector`, like
+      `EDOT_WRITER_PASSWORD`.
+- [ ] Nothing to grant: the gateway writes as `edot_writer`, whose role
+      (`roles/edot_gateway/defaults/main.yml`) already covers
+      `metrics-*-*`.
 - [ ] Optional traps: Logstash `snmptrap` pipeline on `1062/udp`
       (non-root; QNAP lets you set the trap port), output to
-      `logs-snmp.trap-default`. Open the port on the firewall as in Step 1.
+      `logs-snmp.trap-default`. No firewall to open, as in Step 1.
 - [ ] Kibana: a small dashboard (disk temps, volume usage, interface
       throughput) and a rule for disk temperature/volume fill.
 

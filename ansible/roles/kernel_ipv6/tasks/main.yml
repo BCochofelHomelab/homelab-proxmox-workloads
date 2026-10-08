@@ -1,0 +1,59 @@
+---
+# The template boots with ipv6.disable=1 (packer/ubuntu-26.04 user-data):
+# the kernel has no IPv6 at all, so a container that listens on [::]
+# fails to start (the OTel Demo's nginx-based services). This removes the
+# boot parameter, which takes a reboot, and keeps the host itself
+# IPv4-only with sysctl, as the template intends: containers have their
+# own network namespaces and aren't affected.
+
+- name: Remove ipv6.disable=1 from the kernel command line
+  ansible.builtin.replace:
+    path: /etc/default/grub
+    regexp: '\s*ipv6\.disable=1'
+    replace: ""
+  become: true
+  register: _ipv6_grub
+
+- name: Regenerate GRUB's configuration
+  ansible.builtin.command: update-grub
+  become: true
+  changed_when: true
+  when: _ipv6_grub.changed
+
+- name: Read the running kernel's command line
+  ansible.builtin.slurp:
+    src: /proc/cmdline
+  register: _ipv6_cmdline
+
+# Applied at boot (the keys only exist once the kernel has IPv6), so
+# loaded now only when it already has.
+- name: Keep the host's own interfaces IPv4-only
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: "1"
+    sysctl_file: /etc/sysctl.d/60-ipv6-host-off.conf
+    reload: "{{ 'ipv6.disable=1' not in (_ipv6_cmdline.content | b64decode) }}"
+  loop:
+    - net.ipv6.conf.all.disable_ipv6
+    - net.ipv6.conf.default.disable_ipv6
+  become: true
+
+- name: Reboot into a kernel with IPv6
+  ansible.builtin.reboot:
+    reboot_timeout: 600
+    msg: Ansible (kernel_ipv6) - re-enabling IPv6 in the kernel
+  become: true
+  when: "'ipv6.disable=1' in (_ipv6_cmdline.content | b64decode)"
+
+- name: Read the kernel's command line after the reboot
+  ansible.builtin.slurp:
+    src: /proc/cmdline
+  register: _ipv6_cmdline_after
+
+- name: Check the kernel booted without ipv6.disable=1
+  ansible.builtin.assert:
+    that: "'ipv6.disable=1' not in (_ipv6_cmdline_after.content | b64decode)"
+    fail_msg: >-
+      The kernel still boots with ipv6.disable=1: check /etc/default/grub
+      and /etc/default/grub.d/ on {{ inventory_hostname }}.
+    quiet: true
