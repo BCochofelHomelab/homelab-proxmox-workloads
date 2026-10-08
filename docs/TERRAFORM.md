@@ -61,7 +61,8 @@ Fleet Server (kibana:8220) ─────────────> Elasticsearc
 | Fleet Server host `fleet-server-kibana` | `https://192.168.68.33:8220`, the default |
 | Agent policy `fleet-server-policy` | `fleet_server` and `system` integrations; Ansible enrolls the kibana VM's agent into it as Fleet Server |
 | Agent policies `elasticsearch-nodes`, `logstash`, `homelab-vms` | One per VM role (`for_each`), each with the `system` integration; Ansible enrolls each VM into its role's policy. Role-specific integrations (stack monitoring) go here |
-| Packages | `fleet_server` 1.6.1, `system` 3.0.0 (compatible with Kibana 9.5.4), kept on destroy |
+| Stack monitoring (`monitoring.tf`) | `elasticsearch` on `elasticsearch-nodes` (each node: `https://localhost:9200`, scope `node`), `kibana` on `fleet-server-policy` (`https://192.168.68.33:5601`), `logstash` on `logstash` (`http://localhost:9600`, the stack-monitoring streams enabled): metrics and logs, TLS verified against the CA, as `remote_monitoring_user`, its password read from `ansible/inventory/group_vars/all.sops.yaml` through the `sops` provider. Not Elasticsearch's legacy self-collection |
+| Packages | `fleet_server` 1.6.1, `system` 3.0.0, `elasticsearch` 1.23.3, `kibana` 2.9.0, `logstash` 2.11.3 (compatible with Kibana 9.5.4), kept on destroy |
 
 **Order.** Fleet Server only works with an Elasticsearch output, and the
 Basic licence has no per-policy outputs (Platinum). Fleet refuses to add

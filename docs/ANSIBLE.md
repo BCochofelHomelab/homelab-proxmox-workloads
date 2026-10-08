@@ -42,7 +42,7 @@ inventory secrets and the CA key only while a task needs them.
 | Playbook | Does |
 | --- | --- |
 | `00-bootstrap.yml` | Preflight checks (`common`), then formats and mounts each data disk (`data_disk`) before any service is installed |
-| `10-elasticsearch.yml` | Elastic's APT repository (`elastic_repo`), then Elasticsearch (`elasticsearch`) on every node; waits for green; rolling restart of nodes whose configuration changed |
+| `10-elasticsearch.yml` | Elastic's APT repository (`elastic_repo`), then Elasticsearch (`elasticsearch`) on every node; waits for green; rolling restart of nodes whose configuration changed; sets the built-in `remote_monitoring_user`'s password |
 | `20-kibana.yml` | Kibana (`kibana`): `kibana_system`'s password, package, certificate, keystore, configuration; waits until available |
 | `30-logstash.yml` | Logstash (`logstash`): the `logstash_writer` role and user, package, certificate, the Elastic Agent pipeline; waits until it runs and listens |
 | `40-fleet-server.yml` | Fleet Server (`fleet_server`): enrolls the kibana VM's agent into `fleet-server-policy`, once; waits until healthy. Needs the Fleet config stack applied |
@@ -60,6 +60,7 @@ your age key only, never to the AI agent's:
 | `kibana_system_password` | The built-in `kibana_system` user Kibana connects as (12+ characters) |
 | `kibana_encryption_key` | Kibana's saved-objects encryption key (32+ characters). Fleet and alerting secrets are encrypted with it: changing or losing it makes them unreadable. Kibana's session and reporting keys are derived from it. |
 | `logstash_writer_password` | The `logstash_writer` user Logstash writes to Elasticsearch as (12+ characters) |
+| `remote_monitoring_password` | The built-in `remote_monitoring_user` the stack-monitoring integrations collect as (12+ characters). Ansible sets it in Elasticsearch; the Fleet config stack reads it from this file |
 
 Create the file once, from the repo root (`.sops.yaml` applies there),
 with a generated password that's never shown:
@@ -81,11 +82,13 @@ mise run sops -- set ansible/inventory/group_vars/all.sops.yaml \
 ```
 
 See or edit the values with `mise run sops -- ansible/inventory/group_vars/all.sops.yaml`.
-For example, Logstash's:
+For example, Logstash's or the monitoring user's:
 
 ```bash
 mise run sops -- set ansible/inventory/group_vars/all.sops.yaml \
   '["logstash_writer_password"]' "\"$(openssl rand -base64 24)\""
+mise run sops -- set ansible/inventory/group_vars/all.sops.yaml \
+  '["remote_monitoring_password"]' "\"$(openssl rand -base64 24)\""
 ```
 
 ## Internal CA

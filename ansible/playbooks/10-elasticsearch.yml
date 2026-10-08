@@ -40,3 +40,55 @@
         name: elasticsearch
         tasks_from: restart
       when: es_restart_needed | bool
+
+# Built-in users whose passwords this repo owns (all.sops.yaml), set as
+# elastic once the cluster is up; a user that already authenticates with
+# its password is left alone.
+- name: Built-in users
+  hosts: elasticsearch
+  gather_facts: false
+  tasks:
+    - name: Check the built-in users' passwords are available
+      ansible.builtin.assert:
+        that:
+          - remote_monitoring_password is defined
+          - remote_monitoring_password | length >= 12
+        fail_msg: >-
+          remote_monitoring_password (12+ characters) is missing from
+          inventory/group_vars/all.sops.yaml (docs/ANSIBLE.md).
+        quiet: true
+      run_once: true
+      no_log: true
+
+    # remote_monitoring_user: the Elastic Agent integrations that collect
+    # stack monitoring (stacks/elastic/fleet).
+    - name: Check whether remote_monitoring_user authenticates with its password
+      ansible.builtin.uri:
+        url: "{{ es_hosts | first }}/_security/_authenticate"
+        ca_path: "{{ elastic_ca_cert }}"
+        url_username: remote_monitoring_user
+        url_password: "{{ remote_monitoring_password }}"
+        force_basic_auth: true
+        status_code: [200, 401]
+      delegate_to: localhost
+      become: false
+      run_once: true
+      register: _remote_monitoring_auth
+
+    - name: Set remote_monitoring_user's password
+      ansible.builtin.uri:
+        url: "{{ es_hosts | first }}/_security/user/remote_monitoring_user/_password"
+        method: POST
+        body_format: json
+        body:
+          password: "{{ remote_monitoring_password }}"
+        ca_path: "{{ elastic_ca_cert }}"
+        url_username: elastic
+        url_password: "{{ elastic_password }}"
+        force_basic_auth: true
+      delegate_to: localhost
+      become: false
+      run_once: true
+      no_log: true
+      changed_when: true
+      when: _remote_monitoring_auth.status == 401
