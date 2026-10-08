@@ -54,7 +54,8 @@ Create each one as in core's step 2 before its first `tofu:init`:
 **CLI-driven**, then *Settings → General → Execution Mode* → **Local**
 (Proxmox is LAN-only; HCP only stores state). `tofu init` would otherwise
 create a missing workspace with the organization's default execution
-mode, which is Remote. The token is the same `TF_TOKEN_app_terraform_io`
+mode: check that default is Local (*Organization settings → General →
+Default Execution Mode*). The token is the same `TF_TOKEN_app_terraform_io`
 from `~/.secrets/homelab.yaml`, and the Proxmox token and cloud-init
 password are core's `TF_VAR_proxmox_api_token` and `TF_VAR_cipassword`.
 `mise run creds:check` checks the token can read every workspace above.
