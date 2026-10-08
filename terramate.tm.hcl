@@ -49,6 +49,15 @@ globals {
     searchdomain = "homelab.bcochofel.com"
   }
 
+  # The Elastic stack the config stacks (tag "config") talk to: the VMs
+  # stacks/elastic/infra creates, over TLS verified against the internal CA
+  # (ansible/pki, path from the repo root).
+  elastic = {
+    es_endpoints    = ["https://192.168.68.30:9200", "https://192.168.68.31:9200", "https://192.168.68.32:9200"]
+    kibana_endpoint = "https://192.168.68.33:5601"
+    ca_cert         = "ansible/pki/elastic-ca.crt"
+  }
+
   # cloud-init user on every clone; matches the template's user and
   # Ansible's remote user.
   ciuser = "ubuntu"

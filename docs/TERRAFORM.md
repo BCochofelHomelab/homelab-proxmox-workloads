@@ -16,6 +16,7 @@ before applying; never `destroy` from a task.
 | --- | --- | --- | --- |
 | `stacks/elastic/infra` | `infra`, `elastic` | `es-01`..`es-03` (`.30`–`.32`), `kibana` (`.33`), `ingest` (`.34`) | `ansible/inventory/elastic.ini` |
 | `stacks/otel-demo/infra` | `infra`, `otel-demo` | `otel-demo` (`.35`) | `ansible/inventory/otel-demo.ini` |
+| `stacks/elastic/cluster` | `config`, `elastic` | — (Elasticsearch configuration, below) | — |
 
 All IPs are in `192.168.68.0/22`; `.30`–`.39` is reserved for the Elastic
 stack and its demo workloads.
@@ -32,12 +33,37 @@ there. The data disk (`scsi1`) is created empty; Ansible formats and
 mounts it where the role keeps its data.
 
 **Lifecycles.** The `infra` stacks hold VMs, which rarely change. Elastic
-configuration that changes often (ILM, Fleet policies and outputs, Kibana
-spaces and dashboards) will live in separate `config` stacks under
-`stacks/elastic/` (for example `stacks/elastic/fleet`), applied after
-Ansible has installed the stack. Logstash pipelines are files deployed by
-Ansible, not OpenTofu: managing them through Elasticsearch needs
-centralized pipeline management, a paid subscription feature.
+configuration that changes often lives in separate `config` stacks under
+`stacks/elastic/`, applied after Ansible has installed the stack:
+
+| Config stack | Manages |
+| --- | --- |
+| `stacks/elastic/cluster` | ILM policy `homelab-30d` (hot 7 days, cold until day 30, then deleted) and the `logs@custom`, `metrics@custom`, `traces@custom` component templates that apply it |
+| `stacks/elastic/fleet` (next) | Fleet outputs (Elasticsearch, Logstash), Fleet Server host, agent and integration policies |
+| `stacks/elastic/kibana` (later) | Spaces, data views, dashboards |
+
+Logstash pipelines are files deployed by Ansible, not OpenTofu: managing
+them through Elasticsearch needs centralized pipeline management, a paid
+subscription feature.
+
+### Retention (`stacks/elastic/cluster`)
+
+Every `logs-*`, `metrics-*` and `traces-*` data stream, from Elastic Agent
+integrations or OTel, uses ILM policy `homelab-30d`:
+
+| Phase | From | Does |
+| --- | --- | --- |
+| hot | rollover | Written and searched; rolls over daily or at 50 GB per primary shard |
+| cold | 7 days | Read-only, lowest recovery priority |
+| delete | 30 days | Deleted |
+
+Ages count from each backing index's rollover, so data stays 30 days plus
+up to a day in the write index. The three nodes hold every data tier, so
+"cold" changes how the index is treated, not where it lives (`migrate`
+off). The policy is set in the `<type>@custom` component templates, which
+Elastic's built-in and Fleet's index templates compose after their own
+settings; it applies to backing indices created from then on, so a data
+stream that existed before picks it up at its next rollover.
 
 ## Layout and generated code
 
@@ -45,7 +71,9 @@ centralized pipeline management, a paid subscription feature.
 terramate.tm.hcl        # project config and globals (non-secret shared inputs)
 stacks/
   infra.tm.hcl          # code generated into every stack tagged "infra"
+  config.tm.hcl         # code generated into every stack tagged "config" + "elastic"
   elastic/infra/        # stack.tm.hcl, main.tf, outputs.tf, templates/
+  elastic/cluster/
   otel-demo/infra/
 modules/vm/             # one VM: clone, cloud-init, optional data disk
 ```
@@ -58,6 +86,12 @@ from the globals in `terramate.tm.hcl`:
 - `_terramate_generated_proxmox.tf`: the `proxmox` provider, the secret
   variables, the shared non-secret inputs as locals, and the template's
   VMID looked up by name.
+
+`stacks/config.tm.hcl` generates the backend (provider `elastic/elasticstack`)
+and the `elasticstack` provider into each Elastic config stack: the
+Elasticsearch, Kibana and Fleet endpoints from the `elastic` global, all
+verified against `ansible/pki/elastic-ca.crt`. Its credential is the
+`ELASTICSEARCH_API_KEY` environment variable, which Kibana and Fleet reuse.
 
 Never edit a `_terramate_generated_*.tf` file: change the `.tm.hcl`
 source and run `terramate generate` (the pre-commit hook does it too, and
@@ -125,7 +159,8 @@ SOPS_AGE_KEY_FILE=~/.config/sops/age/bcochofel.txt sops exec-env ~/.secrets/home
 | --- | --- |
 | Proxmox endpoint, node, template; gateway, bridge, nameservers, search domain; cloud-init user; SSH **public** keys | Globals in `terramate.tm.hcl`, committed. Nothing secret: change them there and regenerate. |
 | VM names, IPs, sizing, Ansible groups | Each stack's `main.tf` (`nodes`) |
-| `TF_VAR_proxmox_api_token` (`terraform@pve!terraform`), `TF_VAR_cipassword`, `TF_TOKEN_app_terraform_io` | `~/.secrets/homelab.yaml`, passed by the `tofu:*` tasks ([`CREDENTIALS.md`](CREDENTIALS.md)) |
+| Elasticsearch and Kibana endpoints, the CA path | The `elastic` global in `terramate.tm.hcl` |
+| `TF_VAR_proxmox_api_token` (`terraform@pve!terraform`), `TF_VAR_cipassword`, `TF_TOKEN_app_terraform_io`, `ELASTICSEARCH_API_KEY` | `~/.secrets/homelab.yaml`, passed by the `tofu:*` tasks ([`CREDENTIALS.md`](CREDENTIALS.md)) |
 
 There's no `terraform.tfvars`: with several stacks it would need one copy
 per stack. The VMs resolve against CoreDNS primary and secondary
