@@ -1,0 +1,8 @@
+---
+# After Logstash: same VM, and elastic_repo's keyring verifies the tarball.
+- name: EDOT Collector gateway
+  hosts: edot_gateway
+  gather_facts: false
+  roles:
+    - elastic_repo
+    - edot_gateway

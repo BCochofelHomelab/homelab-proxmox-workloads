@@ -1,0 +1,27 @@
+# {{ ansible_managed }}
+[Unit]
+Description=EDOT Collector (Elastic Distribution of OpenTelemetry), gateway
+Documentation=https://www.elastic.co/docs/reference/edot-collector
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User={{ edot_user }}
+Group={{ edot_user }}
+# EDOT_WRITER_PASSWORD (root-only file, read by systemd before dropping
+# privileges).
+EnvironmentFile=/etc/default/edot-collector
+WorkingDirectory={{ edot_data_dir }}
+ExecStart={{ edot_base_dir }}/current/elastic-agent otel --config {{ edot_config_dir }}/otel.yml
+Restart=on-failure
+RestartSec=5s
+# Hard stop above the memory_limiter processor's soft limit.
+MemoryMax={{ edot_memory_limit_mib + 256 }}M
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

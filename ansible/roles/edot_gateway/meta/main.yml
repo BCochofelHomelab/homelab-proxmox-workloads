@@ -1,0 +1,7 @@
+galaxy_info:
+  author: Bruno Cochofel
+  description: EDOT Collector gateway from Elastic's signed tarball, OTLP over mTLS into Elasticsearch
+  license: MIT
+  min_ansible_version: "2.15"
+  galaxy_tags: []
+dependencies: []

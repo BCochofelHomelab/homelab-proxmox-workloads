@@ -1,0 +1,30 @@
+---
+# edot_grpc_port, edot_http_port, edot_memory_limit_mib:
+# group_vars/edot_gateway.yml. edot_writer_password: group_vars/all.sops.yaml.
+
+# The EDOT Collector is the Elastic Agent binary run as `elastic-agent otel`:
+# its own copy of the stack's tarball, separate from the Fleet-managed agent
+# on the same VM. Bump elastic_version (group_vars/all.yml) to upgrade.
+edot_version: "{{ elastic_version }}"
+edot_tarball_name: elastic-agent-{{ edot_version }}-linux-x86_64
+edot_tarball_url: https://artifacts.elastic.co/downloads/beats/elastic-agent/{{ edot_tarball_name }}.tar.gz
+
+# One directory per version; `current` points at the one that runs.
+edot_base_dir: /opt/edot-collector
+edot_install_dir: "{{ edot_base_dir }}/{{ edot_version }}"
+edot_config_dir: /etc/edot-collector
+edot_certs_dir: "{{ edot_config_dir }}/certs"
+edot_data_dir: /var/lib/edot-collector
+edot_user: edot
+
+# Health check extension, on localhost only (Ansible's checks).
+edot_health_port: 13133
+
+# The Elasticsearch user the gateway writes as, and its role: create
+# documents in the OTel data streams, and nothing else.
+edot_writer_user: edot_writer
+edot_writer_role:
+  cluster: [monitor]
+  indices:
+    - names: ["logs-*-*", "metrics-*-*", "traces-*-*"]
+      privileges: [auto_configure, create_doc]
