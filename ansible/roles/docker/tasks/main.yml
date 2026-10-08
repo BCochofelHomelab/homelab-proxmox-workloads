@@ -1,0 +1,71 @@
+---
+# Docker Engine and the Compose plugin, for the one VM that runs containers
+# (packer/ubuntu-26.04 ADR-5: the template has no Docker). From Docker's
+# APT repository, trusted only for packages signed by Docker's key,
+# verified by fingerprint before it's installed (like elastic_repo).
+
+- name: Check whether Docker's keyring is installed
+  ansible.builtin.stat:
+    path: "{{ docker_repo_keyring }}"
+  register: _docker_keyring
+
+- name: Install Docker's signing key
+  when: not _docker_keyring.stat.exists
+  become: true
+  block:
+    - name: Download Docker's signing key
+      ansible.builtin.get_url:
+        url: "{{ docker_repo_key_url }}"
+        dest: /tmp/docker-signing-key.asc
+        mode: "0644"
+
+    - name: Read the downloaded key's fingerprint
+      ansible.builtin.shell: >-
+        set -o pipefail &&
+        gpg --show-keys --with-colons /tmp/docker-signing-key.asc
+        | awk -F: '/^fpr:/ { print $10; exit }'
+      args:
+        executable: /bin/bash
+      register: _docker_key_fpr
+      changed_when: false
+
+    - name: Fail on a fingerprint mismatch
+      ansible.builtin.assert:
+        that: _docker_key_fpr.stdout == docker_repo_key_fingerprint
+        fail_msg: "Docker signing key fingerprint is {{ _docker_key_fpr.stdout }}, expected {{ docker_repo_key_fingerprint }}."
+        quiet: true
+
+    - name: Install the key as a dedicated keyring
+      ansible.builtin.command:
+        argv: [gpg, --dearmor, --yes, --output, "{{ docker_repo_keyring }}", /tmp/docker-signing-key.asc]
+      changed_when: true
+
+  always:
+    - name: Remove the downloaded key
+      ansible.builtin.file:
+        path: /tmp/docker-signing-key.asc
+        state: absent
+
+- name: Add Docker's APT repository
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: [deb]
+    uris: ["{{ docker_repo_url }}"]
+    suites: ["{{ ansible_facts['distribution_release'] }}"]
+    components: [stable]
+    signed_by: "{{ docker_repo_keyring }}"
+  become: true
+  register: _docker_repo
+
+- name: Install Docker Engine and the Compose plugin
+  ansible.builtin.apt:
+    name: "{{ docker_packages }}"
+    update_cache: "{{ _docker_repo.changed }}"
+  become: true
+
+- name: Start Docker and enable it at boot
+  ansible.builtin.systemd_service:
+    name: docker
+    state: started
+    enabled: true
+  become: true

@@ -1,0 +1,26 @@
+---
+# Upstream OpenTelemetry Demo, pinned to a release tag; its images are
+# pinned to the same version (DEMO_VERSION, env.homelab).
+otel_demo_version: "3.1.0"
+otel_demo_repo: https://github.com/open-telemetry/opentelemetry-demo.git
+# The checkout, never modified: our settings are separate files.
+otel_demo_dir: /opt/otel-demo
+# Our settings: env file, Compose override, collector extras, client cert.
+otel_demo_config_dir: /etc/otel-demo
+otel_demo_certs_dir: "{{ otel_demo_config_dir }}/certs"
+# Upstream's core services only (`make start-minimal-no-o11y`): no Jaeger,
+# Grafana, Prometheus or OpenSearch, Elastic is the backend.
+otel_demo_compose_files:
+  - "{{ otel_demo_dir }}/compose.yaml"
+  - "{{ otel_demo_config_dir }}/compose.homelab.yaml"
+otel_demo_env_files:
+  - "{{ otel_demo_dir }}/.env"
+  - "{{ otel_demo_config_dir }}/env.homelab"
+# deployment.environment.name: the Environment in Kibana's APM UI.
+otel_demo_environment: homelab
+# The web store (frontend-proxy, upstream's ENVOY_PORT).
+otel_demo_frontend_port: 8080
+
+# The EDOT Collector gateway the demo's collector exports to (OTLP gRPC).
+otel_demo_gateway: >-
+  {{ hostvars[groups['edot_gateway'][0]].ansible_host }}:{{ hostvars[groups['edot_gateway'][0]].edot_grpc_port }}

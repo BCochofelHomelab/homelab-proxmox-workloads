@@ -1,0 +1,23 @@
+# {{ ansible_managed }}
+# The demo collector's extras layer (upstream's otelcol-config-extras.yml
+# seam): export every signal to the EDOT Collector gateway over mTLS.
+# Collector configs merge maps but replace arrays: the exporter lists below
+# replace upstream's (debug only), the receivers and processors stay.
+# Profiles stay on debug: the gateway has no profiles pipeline.
+
+exporters:
+  otlp_grpc/edot:
+    endpoint: {{ otel_demo_gateway }}
+    tls:
+      ca_file: /etc/otelcol-certs/ca.crt
+      cert_file: /etc/otelcol-certs/client.crt
+      key_file: /etc/otelcol-certs/client.key
+
+service:
+  pipelines:
+    traces:
+      exporters: [span_metrics, otlp_grpc/edot]
+    metrics:
+      exporters: [otlp_grpc/edot]
+    logs:
+      exporters: [otlp_grpc/edot]

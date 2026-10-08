@@ -48,7 +48,8 @@ inventory secrets and the CA key only while a task needs them.
 | `35-edot-gateway.yml` | EDOT Collector gateway (`edot_gateway`) on the ingest VM: the `edot_writer` role and user, Elastic's verified tarball, certificate, configuration (validated), systemd unit; waits until healthy and listening |
 | `40-fleet-server.yml` | Fleet Server (`fleet_server`): enrolls the kibana VM's agent into `fleet-server-policy`, once; waits until healthy. Needs the Fleet config stack applied |
 | `50-elastic-agents.yml` | Every other VM's Elastic Agent (`elastic_agent`): enrolled into its role's policy, once; waits until connected |
-| `99-healthcheck.yml` | From the controller, over TLS verified against the CA: every Elasticsearch node answers as `elastic` and runs `elastic_version`, the cluster is green with every node, Kibana is available and runs `elastic_version`. Kibana through core's Caddy is reported without failing the run. Logstash's agent pipeline runs on `elastic_version`, and its port presents a certificate that verifies against the CA. The EDOT Collector is healthy, runs `elastic_version`, and its OTLP port accepts a sender with a CA-signed certificate and refuses one without |
+| `60-otel-demo.yml` | The OpenTelemetry Demo VM: IPv6 back in the kernel, rebooting once (`kernel_ipv6`), Docker from Docker's APT repository (`docker`), then the demo (`otel_demo`): pinned checkout, client certificate, settings, Compose up; waits for the web store |
+| `99-healthcheck.yml` | From the controller, over TLS verified against the CA: every Elasticsearch node answers as `elastic` and runs `elastic_version`, the cluster is green with every node, Kibana is available and runs `elastic_version`. Kibana through core's Caddy is reported without failing the run. Logstash's agent pipeline runs on `elastic_version`, and its port presents a certificate that verifies against the CA. The EDOT Collector is healthy, runs `elastic_version`, and its OTLP port accepts a sender with a CA-signed certificate and refuses one without. The OTel Demo's web store answers, and its traces reach Elasticsearch through the gateway |
 
 ## Secrets
 
@@ -252,6 +253,48 @@ Configuration based on Elastic's gateway sample for the same version.
   before it replaces the running one; a configuration, environment or
   certificate change restarts the service.
 - **Health:** the `health_check` extension on `127.0.0.1:13133`.
+
+## OpenTelemetry Demo
+
+Upstream's [OpenTelemetry Demo](https://opentelemetry.io/docs/demo/) (a
+microservices web store with a load generator placing orders), as the
+gateway's first sender: its traces, metrics and logs end up in Kibana's
+APM UI.
+
+- **Docker:** the `docker` role, on this VM only (the template has none,
+  `packer/ubuntu-26.04` ADR-5): Docker Engine and the Compose plugin from
+  Docker's APT repository, trusted only for Docker's key, checked by
+  fingerprint first.
+- **IPv6:** the template boots with `ipv6.disable=1`, and two of the
+  demo's nginx-based services (`image-provider`, `telemetry-docs`) listen
+  on `[::]` and won't start without it. `kernel_ipv6` removes the boot
+  parameter (one reboot, the first time) and keeps the VM's own interfaces
+  IPv4-only with `sysctl` (`/etc/sysctl.d/60-ipv6-host-off.conf`);
+  containers have their own network namespaces.
+- **Version:** a checkout of the release tag (`otel_demo_version`, 3.1.0)
+  in `/opt/otel-demo`, and that release's images (`DEMO_VERSION`, instead
+  of upstream's `latest`). Images are pulled, never built.
+- **Services:** upstream's core services only (`compose.yaml`, what `make
+  start-minimal-no-o11y` runs): no Jaeger, Grafana, Prometheus or
+  OpenSearch, Elastic is the backend. The containers restart with Docker
+  at boot.
+- **Settings:** the checkout is never modified. Ours are in
+  `/etc/otel-demo`, loaded after upstream's files: `env.homelab` (versions,
+  `deployment.environment.name=homelab` for APM's Environment, the
+  collector extras path), `compose.homelab.yaml` (the client
+  certificate into the demo's collector) and `otelcol-config-homelab.yml`,
+  upstream's extras seam for the collector. It adds an OTLP gRPC exporter
+  to the gateway and makes it the only exporter of traces (with the
+  demo's own span metrics), metrics and logs. Profiles stay on `debug`:
+  the gateway has no profiles pipeline.
+- **mTLS:** the VM's own client certificate (`clientAuth`), its key
+  generated on the VM, signed by the internal CA like every certificate
+  here. The gateway refuses senders without one.
+- **Changes:** Compose recreates containers whose definition changed; the
+  demo's collector is restarted when its configuration file or
+  certificate changes (bind mounts Compose can't see).
+- **Web store:** `http://192.168.68.35:8080/` (upstream's `ENVOY_PORT`),
+  LAN only.
 
 ## Fleet Server
 

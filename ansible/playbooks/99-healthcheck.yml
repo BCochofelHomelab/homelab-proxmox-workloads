@@ -180,6 +180,42 @@
       register: _edot_no_cert
       failed_when: _edot_no_cert.status != -1
 
+- name: OpenTelemetry Demo health check
+  hosts: otel_demo
+  gather_facts: false
+  vars_files:
+    - ../roles/otel_demo/defaults/main.yml
+  tasks:
+    - name: Check the web store answers on {{ otel_demo_frontend_port }}
+      ansible.builtin.uri:
+        url: http://{{ ansible_host }}:{{ otel_demo_frontend_port }}/
+      delegate_to: localhost
+      become: false
+
+    # End to end: the demo's collector -> the gateway (mTLS) -> Elasticsearch.
+    # Upstream's load generator places orders continuously.
+    - name: Wait for the demo's traces to arrive in Elasticsearch
+      ansible.builtin.uri:
+        url: "{{ es_hosts | first }}/traces-*/_count"
+        method: POST
+        body_format: json
+        body:
+          query:
+            bool:
+              filter:
+                - range: {"@timestamp": {gte: now-10m}}
+                - term: {"resource.attributes.service.namespace": opentelemetry-demo}
+        ca_path: "{{ elastic_ca_cert }}"
+        url_username: elastic
+        url_password: "{{ elastic_password }}"
+        force_basic_auth: true
+      delegate_to: localhost
+      become: false
+      register: _otel_demo_traces
+      until: _otel_demo_traces.json.count | default(0) > 0
+      retries: 30
+      delay: 10
+
 - name: Fleet Server health check
   hosts: fleet_server
   gather_facts: false

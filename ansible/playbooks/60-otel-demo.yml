@@ -1,0 +1,12 @@
+---
+# After the EDOT gateway (35), the demo's backend. The kernel's IPv6 back
+# on (some demo containers listen on [::]; the template disables it), then
+# Docker from Docker's APT repository: the template has none
+# (packer/ubuntu-26.04 ADR-5).
+- name: OpenTelemetry Demo
+  hosts: otel_demo
+  gather_facts: true
+  roles:
+    - kernel_ipv6
+    - docker
+    - otel_demo
