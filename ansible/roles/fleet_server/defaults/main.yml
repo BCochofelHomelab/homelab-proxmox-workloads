@@ -1,0 +1,31 @@
+---
+# fleet_server_policy_id, fleet_server_port: group_vars/fleet_server.yml.
+# Elastic Agent runs as root: its certificates are root-only.
+fleet_server_certs_dir: /etc/fleet-server/certs
+fleet_server_url: "https://{{ ansible_host }}:{{ fleet_server_port }}"
+# Name of the elastic/fleet-server service token Fleet Server runs with.
+fleet_server_token_name: "{{ inventory_hostname }}-fleet-server"
+# Where that token lives: the agent stores this *path*, and Fleet Server
+# reads the file at every start, so it stays (root-only, next to its certs).
+fleet_server_token_file: /etc/fleet-server/service-token
+# Kibana's Fleet API (same VM).
+fleet_server_kibana_url: "https://{{ ansible_host }}:5601"
+
+# The tarball the Fleet Server host's agent is reinstalled from (servers
+# flavor): the stack's version, like the template's agent.
+fleet_server_agent_name: "elastic-agent-{{ elastic_version }}-linux-x86_64"
+fleet_server_agent_url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/{{ fleet_server_agent_name }}.tar.gz"
+fleet_server_download_dir: /root/elastic-agent-servers
+
+# Shared by `install` (reinstall) and `enroll` (re-enroll).
+fleet_server_enroll_args:
+  - --force
+  - --url={{ fleet_server_url }}
+  - --certificate-authorities={{ fleet_server_certs_dir }}/ca.crt
+  - --fleet-server-es={{ es_hosts | first }}
+  - --fleet-server-es-ca={{ fleet_server_certs_dir }}/ca.crt
+  - --fleet-server-service-token-path={{ fleet_server_token_file }}
+  - --fleet-server-policy={{ fleet_server_policy_id }}
+  - --fleet-server-port={{ fleet_server_port }}
+  - --fleet-server-cert={{ fleet_server_certs_dir }}/node.crt
+  - --fleet-server-cert-key={{ fleet_server_certs_dir }}/node.key

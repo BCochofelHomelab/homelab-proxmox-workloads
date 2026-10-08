@@ -1,0 +1,161 @@
+---
+# Runs Fleet Server on this host's Elastic Agent, in the policy the Fleet
+# config stack created.
+#
+# The Packer template installs the agent's default ("basic") flavor, which
+# has no server components: Fleet Server needs the "servers" flavor, chosen
+# at install time (`elastic-agent install --install-servers`). So on the
+# Fleet Server host the agent is reinstalled once, from Elastic's signed
+# tarball, enrolling as Fleet Server in the same command. A healthy Fleet
+# Server is left alone; an unhealthy one is re-enrolled.
+
+- name: Check the Fleet Server policy exists (stacks/elastic/fleet)
+  ansible.builtin.uri:
+    url: "{{ fleet_server_kibana_url }}/api/fleet/agent_policies/{{ fleet_server_policy_id }}"
+    ca_path: "{{ elastic_ca_cert }}"
+    url_username: elastic
+    url_password: "{{ elastic_password }}"
+    force_basic_auth: true
+    status_code: [200, 404]
+  delegate_to: localhost
+  become: false
+  register: _fleet_server_policy
+
+- name: Fail if the Fleet config stack hasn't been applied
+  ansible.builtin.assert:
+    that: _fleet_server_policy.status == 200
+    fail_msg: >-
+      Agent policy {{ fleet_server_policy_id }} doesn't exist: apply the Fleet
+      config stack first (mise run tofu:apply -- stacks/elastic/fleet --tags config).
+    quiet: true
+
+- name: Issue Fleet Server's certificate
+  ansible.builtin.include_role:
+    name: elastic_pki
+  vars:
+    pki_cert_dir: "{{ fleet_server_certs_dir }}"
+    pki_group: root
+    pki_key_mode: "0600"
+
+# -- What's there now -----------------------------------------------------------
+
+- name: Check whether the agent has the Fleet Server component (servers flavor)
+  ansible.builtin.find:
+    paths: /opt/Elastic/Agent/data
+    patterns: fleet-server
+    recurse: true
+    depth: 3
+    file_type: file
+  become: true
+  register: _fleet_server_component
+
+- name: Check whether Fleet Server is healthy
+  ansible.builtin.uri:
+    url: "{{ fleet_server_url }}/api/status"
+    ca_path: "{{ elastic_ca_cert }}"
+    status_code: [200, 503]
+    timeout: 10
+  delegate_to: localhost
+  become: false
+  register: _fleet_status_before
+  failed_when: false
+
+- name: Decide what to do
+  ansible.builtin.set_fact:
+    _fleet_reinstall: "{{ _fleet_server_component.matched == 0 }}"
+    _fleet_enroll: >-
+      {{ _fleet_server_component.matched == 0
+         or (_fleet_status_before.json.status | default('')) != 'HEALTHY' }}
+
+# Fleet Server reads its certificate at start.
+- name: Restart the agent if its certificate changed
+  ansible.builtin.debug:
+    msg: Fleet Server's key or certificates changed.
+  changed_when: true
+  notify: Restart Elastic Agent
+  when: pki_changed and not _fleet_enroll
+
+# -- Install (servers flavor) and/or enroll ---------------------------------------
+
+- name: Install and enroll as Fleet Server
+  when: _fleet_enroll
+  block:
+    # A fresh token each enrollment: drop one left by an earlier attempt.
+    - name: Delete a leftover enrollment service token
+      ansible.builtin.uri:
+        url: "{{ es_hosts | first }}/_security/service/elastic/fleet-server/credential/token/{{ fleet_server_token_name }}"
+        method: DELETE
+        ca_path: "{{ elastic_ca_cert }}"
+        url_username: elastic
+        url_password: "{{ elastic_password }}"
+        force_basic_auth: true
+        status_code: [200, 404]
+      delegate_to: localhost
+      become: false
+
+    - name: Create the enrollment service token (elastic/fleet-server)
+      ansible.builtin.uri:
+        url: "{{ es_hosts | first }}/_security/service/elastic/fleet-server/credential/token/{{ fleet_server_token_name }}"
+        method: POST
+        ca_path: "{{ elastic_ca_cert }}"
+        url_username: elastic
+        url_password: "{{ elastic_password }}"
+        force_basic_auth: true
+      delegate_to: localhost
+      become: false
+      register: _fleet_token
+      no_log: true
+
+    # A root-only file, not a command-line argument (visible in `ps`).
+    # Fleet Server reads it at every start: it's never removed.
+    - name: Write the token for Fleet Server
+      ansible.builtin.copy:
+        content: "{{ _fleet_token.json.token.value }}"
+        dest: "{{ fleet_server_token_file }}"
+        owner: root
+        group: root
+        mode: "0600"
+      become: true
+      no_log: true
+
+    - name: Reinstall the agent with the servers flavor
+      when: _fleet_reinstall
+      ansible.builtin.include_tasks: reinstall.yml
+
+    - name: Enroll the installed agent as Fleet Server
+      when: not _fleet_reinstall
+      block:
+        - name: Start the agent (enroll talks to the running daemon)
+          ansible.builtin.systemd_service:
+            name: elastic-agent
+            state: started
+            enabled: true
+          become: true
+
+        - name: Enroll the agent as Fleet Server
+          ansible.builtin.command:
+            argv: "{{ ['/usr/bin/elastic-agent', 'enroll'] + fleet_server_enroll_args }}"
+          become: true
+          changed_when: true
+
+- name: Keep the agent running and enabled at boot
+  ansible.builtin.systemd_service:
+    name: elastic-agent
+    state: started
+    enabled: true
+  become: true
+
+- name: Apply pending restarts
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for Fleet Server to be healthy over verified TLS
+  ansible.builtin.uri:
+    url: "{{ fleet_server_url }}/api/status"
+    ca_path: "{{ elastic_ca_cert }}"
+    status_code: [200, 503]
+  delegate_to: localhost
+  become: false
+  register: _fleet_status
+  until: _fleet_status.status == 200 and _fleet_status.json.status == 'HEALTHY'
+  retries: 30
+  delay: 10

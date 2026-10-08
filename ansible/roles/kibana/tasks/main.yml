@@ -172,3 +172,22 @@
     and _kibana_status.json.status.overall.level == 'available'
   retries: "{{ kibana_status_retries }}"
   delay: "{{ kibana_status_delay }}"
+
+# Fleet's setup: creates its default Elasticsearch output
+# (fleet-default-output), which the Fleet config stack (stacks/elastic/fleet)
+# adopts. Idempotent.
+- name: Run Fleet's setup
+  ansible.builtin.uri:
+    url: "https://{{ ansible_host }}:{{ kibana_port }}/api/fleet/setup"
+    method: POST
+    headers:
+      kbn-xsrf: ansible
+    ca_path: "{{ elastic_ca_cert }}"
+    url_username: elastic
+    url_password: "{{ elastic_password }}"
+    force_basic_auth: true
+  delegate_to: localhost
+  become: false
+  register: _fleet_setup
+  changed_when: false
+  failed_when: not (_fleet_setup.json.isInitialized | default(false))

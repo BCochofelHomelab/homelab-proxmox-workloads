@@ -58,6 +58,10 @@ globals {
     ca_cert         = "ansible/pki/elastic-ca.crt"
   }
 
+  # Extra required_providers for an Elastic config stack (stacks/config.tm.hcl),
+  # set in that stack's stack.tm.hcl.
+  elastic_extra_providers = {}
+
   # cloud-init user on every clone; matches the template's user and
   # Ansible's remote user.
   ciuser = "ubuntu"
