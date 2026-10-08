@@ -45,9 +45,10 @@ inventory secrets and the CA key only while a task needs them.
 | `10-elasticsearch.yml` | Elastic's APT repository (`elastic_repo`), then Elasticsearch (`elasticsearch`) on every node; waits for green; rolling restart of nodes whose configuration changed; sets the built-in `remote_monitoring_user`'s password |
 | `20-kibana.yml` | Kibana (`kibana`): `kibana_system`'s password, package, certificate, keystore, configuration; waits until available |
 | `30-logstash.yml` | Logstash (`logstash`): the `logstash_writer` role and user, package, certificate, the Elastic Agent pipeline; waits until it runs and listens |
+| `35-edot-gateway.yml` | EDOT Collector gateway (`edot_gateway`) on the ingest VM: the `edot_writer` role and user, Elastic's verified tarball, certificate, configuration (validated), systemd unit; waits until healthy and listening |
 | `40-fleet-server.yml` | Fleet Server (`fleet_server`): enrolls the kibana VM's agent into `fleet-server-policy`, once; waits until healthy. Needs the Fleet config stack applied |
 | `50-elastic-agents.yml` | Every other VM's Elastic Agent (`elastic_agent`): enrolled into its role's policy, once; waits until connected |
-| `99-healthcheck.yml` | From the controller, over TLS verified against the CA: every Elasticsearch node answers as `elastic` and runs `elastic_version`, the cluster is green with every node, Kibana is available and runs `elastic_version`. Kibana through core's Caddy is reported without failing the run. Logstash's agent pipeline runs on `elastic_version`, and its port presents a certificate that verifies against the CA |
+| `99-healthcheck.yml` | From the controller, over TLS verified against the CA: every Elasticsearch node answers as `elastic` and runs `elastic_version`, the cluster is green with every node, Kibana is available and runs `elastic_version`. Kibana through core's Caddy is reported without failing the run. Logstash's agent pipeline runs on `elastic_version`, and its port presents a certificate that verifies against the CA. The EDOT Collector is healthy, runs `elastic_version`, and its OTLP port accepts a sender with a CA-signed certificate and refuses one without |
 
 ## Secrets
 
@@ -60,6 +61,7 @@ your age key only, never to the AI agent's:
 | `kibana_system_password` | The built-in `kibana_system` user Kibana connects as (12+ characters) |
 | `kibana_encryption_key` | Kibana's saved-objects encryption key (32+ characters). Fleet and alerting secrets are encrypted with it: changing or losing it makes them unreadable. Kibana's session and reporting keys are derived from it. |
 | `logstash_writer_password` | The `logstash_writer` user Logstash writes to Elasticsearch as (12+ characters) |
+| `edot_writer_password` | The `edot_writer` user the EDOT Collector gateway writes to Elasticsearch as (12+ characters) |
 | `remote_monitoring_password` | The built-in `remote_monitoring_user` the stack-monitoring integrations collect as (12+ characters). Ansible sets it in Elasticsearch; the Fleet config stack reads it from this file |
 
 Create the file once, from the repo root (`.sops.yaml` applies there),
@@ -89,6 +91,8 @@ mise run sops -- set ansible/inventory/group_vars/all.sops.yaml \
   '["logstash_writer_password"]' "\"$(openssl rand -base64 24)\""
 mise run sops -- set ansible/inventory/group_vars/all.sops.yaml \
   '["remote_monitoring_password"]' "\"$(openssl rand -base64 24)\""
+mise run sops -- set ansible/inventory/group_vars/all.sops.yaml \
+  '["edot_writer_password"]' "\"$(openssl rand -base64 24)\""
 ```
 
 ## Internal CA
@@ -208,6 +212,46 @@ new cluster.
   (`logstash_heap_size`, 1 GB) is set there too, as `LS_JAVA_OPTS`.
 - **Pipelines:** files reload on change (`config.reload.automatic`), no
   restart; settings, the environment file and certificates restart it.
+
+## EDOT Collector gateway
+
+The OpenTelemetry entry point (it replaces APM Server): applications and
+collectors send OTLP to the ingest VM, and the gateway writes it to
+Elasticsearch in OTel-native format, where Kibana's APM UI reads it.
+Configuration based on Elastic's gateway sample for the same version.
+
+- **Install:** the EDOT Collector is the Elastic Agent binary run as
+  `elastic-agent otel`. The gateway has its own copy of Elastic's tarball
+  (`edot_version`, the stack's `elastic_version`), checked like every
+  agent install (signature against Elastic's key, SHA-512), in
+  `/opt/edot-collector/<version>` with `current` pointing at the running
+  one. It's separate from the VM's Fleet-managed agent. Upgrading is a
+  version bump: a new directory, the link moved, a restart.
+- **Service:** `edot-collector.service`, as the `edot` system user, with
+  `/var/lib/edot-collector` as its working directory. `MemoryMax` is 256
+  MiB above the `memory_limiter` processor's soft limit
+  (`edot_memory_limit_mib`, 512): the VM's 4 GB are shared with Logstash.
+- **OTLP in:** gRPC on 4317 and HTTP on 4318 (`edot_grpc_port`,
+  `edot_http_port`), TLS with the gateway's certificate from the internal
+  CA, and `client_ca_file`: mTLS, only senders with a certificate from
+  that CA get in. Each sender gets its own certificate from `elastic_pki`
+  (its key generated on its host), like the OTel Demo VM.
+- **Pipelines:** `memory_limiter` first, then `batch`; traces through the
+  `elasticapm` processor; traces and logs into the `elasticapm`
+  connector, whose aggregated APM metrics are exported too.
+- **Elasticsearch out:** the `elasticsearch` exporter, `mapping.mode:
+  otel`, to every node, verified against the CA, as `edot_writer`, whose
+  role only creates documents in `logs-*-*`, `metrics-*-*` and
+  `traces-*-*`. The playbook creates the role and user (as `elastic`) and
+  resets the password when it no longer authenticates. Retention is
+  `homelab-30d`, like everything else (`stacks/elastic/cluster`).
+- **Secrets:** the writer's password reaches the collector as
+  `${env:EDOT_WRITER_PASSWORD}`, from `/etc/default/edot-collector`
+  (root-only, the unit's `EnvironmentFile`), never in `otel.yml`.
+- **Changes:** `otel.yml` is validated (`elastic-agent otel validate`)
+  before it replaces the running one; a configuration, environment or
+  certificate change restarts the service.
+- **Health:** the `health_check` extension on `127.0.0.1:13133`.
 
 ## Fleet Server
 

@@ -1,0 +1,263 @@
+---
+# Runs the EDOT Collector as an OpenTelemetry gateway (it replaces APM
+# Server): OTLP over gRPC and HTTP, mTLS (only senders with a certificate
+# from the internal CA), into Elasticsearch's OTel data streams as
+# edot_writer. Its own copy of Elastic's signed tarball, as a systemd
+# service under its own user, next to the Fleet-managed agent.
+
+- name: Check the EDOT writer's secret is available
+  ansible.builtin.assert:
+    that:
+      - edot_writer_password is defined
+      - edot_writer_password | length >= 12
+    fail_msg: >-
+      edot_writer_password (12+ characters) is missing from
+      inventory/group_vars/all.sops.yaml (docs/ANSIBLE.md).
+    quiet: true
+  no_log: true
+
+# -- edot_writer in Elasticsearch ----------------------------------------------
+
+- name: Create or update the edot_writer role
+  ansible.builtin.uri:
+    url: "{{ es_hosts | first }}/_security/role/{{ edot_writer_user }}"
+    method: PUT
+    body_format: json
+    body: "{{ edot_writer_role }}"
+    ca_path: "{{ elastic_ca_cert }}"
+    url_username: elastic
+    url_password: "{{ elastic_password }}"
+    force_basic_auth: true
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: _edot_role
+  changed_when: _edot_role.json.role.created
+
+- name: Check whether edot_writer authenticates with its password
+  ansible.builtin.uri:
+    url: "{{ es_hosts | first }}/_security/_authenticate"
+    ca_path: "{{ elastic_ca_cert }}"
+    url_username: "{{ edot_writer_user }}"
+    url_password: "{{ edot_writer_password }}"
+    force_basic_auth: true
+    status_code: [200, 401]
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: _edot_writer_auth
+
+- name: Create edot_writer, or reset its password
+  ansible.builtin.uri:
+    url: "{{ es_hosts | first }}/_security/user/{{ edot_writer_user }}"
+    method: PUT
+    body_format: json
+    body:
+      password: "{{ edot_writer_password }}"
+      roles: ["{{ edot_writer_user }}"]
+      full_name: EDOT Collector gateway (homelab-proxmox-workloads)
+    ca_path: "{{ elastic_ca_cert }}"
+    url_username: elastic
+    url_password: "{{ elastic_password }}"
+    force_basic_auth: true
+  delegate_to: localhost
+  become: false
+  run_once: true
+  no_log: true
+  changed_when: true
+  when: _edot_writer_auth.status == 401
+
+# -- User and directories ---------------------------------------------------------
+
+- name: Create the {{ edot_user }} system user
+  ansible.builtin.user:
+    name: "{{ edot_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ edot_data_dir }}"
+    create_home: false
+  become: true
+
+- name: Create the data directory
+  ansible.builtin.file:
+    path: "{{ edot_data_dir }}"
+    state: directory
+    owner: "{{ edot_user }}"
+    group: "{{ edot_user }}"
+    mode: "0750"
+  become: true
+
+- name: Create the configuration directory
+  ansible.builtin.file:
+    path: "{{ edot_config_dir }}"
+    state: directory
+    owner: root
+    group: "{{ edot_user }}"
+    mode: "0750"
+  become: true
+
+# -- Install {{ edot_version }} (once per version) --------------------------------
+
+- name: Check whether {{ edot_version }} is installed
+  ansible.builtin.stat:
+    path: "{{ edot_install_dir }}/elastic-agent"
+  become: true
+  register: _edot_installed
+
+# Checked like every agent install: Elastic's key is the keyring
+# elastic_repo installed (verified by fingerprint), then the tarball's
+# signature and SHA-512.
+- name: Download, verify and unpack {{ edot_tarball_name }}
+  when: not _edot_installed.stat.exists
+  block:
+    - name: Create a working directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: .edot
+      become: true
+      register: _edot_work
+
+    - name: Download the tarball, its checksum and signature
+      ansible.builtin.get_url:
+        url: "{{ edot_tarball_url }}{{ item }}"
+        dest: "{{ _edot_work.path }}/{{ edot_tarball_name }}.tar.gz{{ item }}"
+        mode: "0600"
+      loop: ["", ".sha512", ".asc"]
+      become: true
+
+    - name: Verify the signature with Elastic's key
+      ansible.builtin.command:
+        argv:
+          - gpgv
+          - --keyring
+          - /usr/share/keyrings/elastic.gpg
+          - "{{ _edot_work.path }}/{{ edot_tarball_name }}.tar.gz.asc"
+          - "{{ _edot_work.path }}/{{ edot_tarball_name }}.tar.gz"
+      become: true
+      changed_when: false
+
+    - name: Verify the checksum
+      ansible.builtin.command:
+        argv: [sha512sum, -c, "{{ edot_tarball_name }}.tar.gz.sha512"]
+        chdir: "{{ _edot_work.path }}"
+      become: true
+      changed_when: false
+
+    - name: Create the install directory
+      ansible.builtin.file:
+        path: "{{ edot_install_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+
+    - name: Unpack the tarball
+      ansible.builtin.unarchive:
+        src: "{{ _edot_work.path }}/{{ edot_tarball_name }}.tar.gz"
+        dest: "{{ edot_install_dir }}"
+        remote_src: true
+        extra_opts: [--strip-components=1]
+        owner: root
+        group: root
+      become: true
+
+  always:
+    - name: Remove the working directory
+      ansible.builtin.file:
+        path: "{{ _edot_work.path }}"
+        state: absent
+      become: true
+      when: _edot_work.path is defined
+
+- name: Point current at {{ edot_version }}
+  ansible.builtin.file:
+    src: "{{ edot_install_dir }}"
+    dest: "{{ edot_base_dir }}/current"
+    state: link
+  become: true
+  notify: Restart the EDOT Collector
+
+# -- TLS ----------------------------------------------------------------------------
+
+- name: Issue the gateway's certificate
+  ansible.builtin.include_role:
+    name: elastic_pki
+  vars:
+    pki_cert_dir: "{{ edot_certs_dir }}"
+    pki_group: "{{ edot_user }}"
+
+# The collector reads its TLS material at start.
+- name: Restart the collector if its certificate changed
+  ansible.builtin.debug:
+    msg: The gateway's key or certificates changed.
+  changed_when: true
+  notify: Restart the EDOT Collector
+  when: pki_changed
+
+# -- Configuration ------------------------------------------------------------------
+
+# The writer's password reaches the collector as an environment variable
+# from the unit's EnvironmentFile (root-only), never in otel.yml.
+- name: Write the environment file
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible. Read by edot-collector.service (EnvironmentFile).
+      EDOT_WRITER_PASSWORD="{{ edot_writer_password }}"
+    dest: /etc/default/edot-collector
+    owner: root
+    group: root
+    mode: "0600"
+  become: true
+  no_log: true
+  notify: Restart the EDOT Collector
+
+- name: Write otel.yml
+  ansible.builtin.template:
+    src: otel.yml.j2
+    dest: "{{ edot_config_dir }}/otel.yml"
+    owner: root
+    group: "{{ edot_user }}"
+    mode: "0640"
+    validate: "{{ edot_base_dir }}/current/elastic-agent otel validate --config %s"
+  become: true
+  notify: Restart the EDOT Collector
+
+- name: Write the systemd unit
+  ansible.builtin.template:
+    src: edot-collector.service.j2
+    dest: /etc/systemd/system/edot-collector.service
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: Restart the EDOT Collector
+
+# -- Service ------------------------------------------------------------------------
+
+- name: Start the EDOT Collector and enable it at boot
+  ansible.builtin.systemd_service:
+    name: edot-collector
+    state: started
+    enabled: true
+    daemon_reload: true
+  become: true
+
+- name: Apply pending restarts
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for the collector to report healthy
+  ansible.builtin.uri:
+    url: http://127.0.0.1:{{ edot_health_port }}/
+  become: true
+  register: _edot_health
+  until: _edot_health.status == 200
+  retries: 30
+  delay: 5
+
+- name: Wait for OTLP to listen on {{ edot_grpc_port }} and {{ edot_http_port }}
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: "{{ item }}"
+    timeout: 60
+  loop: ["{{ edot_grpc_port }}", "{{ edot_http_port }}"]

@@ -1,0 +1,75 @@
+# {{ ansible_managed }}
+# EDOT Collector {{ edot_version }} in gateway mode on {{ inventory_hostname }}:
+# OTLP in (mTLS), Elasticsearch out (OTel-native mapping). Based on Elastic's
+# gateway sample (elastic-agent v{{ edot_version }},
+# internal/edot/samples/linux/gateway.yml): the elasticapm processor and
+# connector feed Kibana's APM UI.
+
+extensions:
+  health_check:
+    endpoint: 127.0.0.1:{{ edot_health_port }}
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:{{ edot_grpc_port }}
+        tls: &otlp_tls
+          cert_file: {{ edot_certs_dir }}/node.crt
+          key_file: {{ edot_certs_dir }}/node.key
+          # mTLS: only senders with a certificate from the internal CA.
+          client_ca_file: {{ edot_certs_dir }}/ca.crt
+      http:
+        endpoint: 0.0.0.0:{{ edot_http_port }}
+        tls: *otlp_tls
+
+connectors:
+  elasticapm: {}
+
+processors:
+  # First in every pipeline: refuses data rather than outgrow the VM it
+  # shares with Logstash (the unit's MemoryMax is the hard stop).
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: {{ edot_memory_limit_mib }}
+    spike_limit_mib: {{ (edot_memory_limit_mib / 4) | int }}
+  batch:
+    send_batch_size: 1000
+    timeout: 1s
+    send_batch_max_size: 1500
+  batch/metrics:
+    # 0: never split a metrics request.
+    send_batch_max_size: 0
+    timeout: 1s
+  elasticapm: {}
+
+exporters:
+  elasticsearch/otel:
+    endpoints: {{ es_hosts | to_json }}
+    user: {{ edot_writer_user }}
+    password: ${env:EDOT_WRITER_PASSWORD}
+    tls:
+      ca_file: {{ edot_certs_dir }}/ca.crt
+    mapping:
+      mode: otel
+
+service:
+  extensions: [health_check]
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch/metrics]
+      exporters: [elasticsearch/otel]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [elasticapm, elasticsearch/otel]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, elasticapm]
+      exporters: [elasticapm, elasticsearch/otel]
+    # The APM metrics the connector aggregates from traces and logs.
+    metrics/aggregated-otel-metrics:
+      receivers: [elasticapm]
+      processors: []
+      exporters: [elasticsearch/otel]

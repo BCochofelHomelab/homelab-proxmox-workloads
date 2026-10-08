@@ -128,6 +128,58 @@
       changed_when: false
       failed_when: "'Verification: OK' not in _logstash_tls.stderr"
 
+- name: EDOT Collector gateway health check
+  hosts: edot_gateway
+  gather_facts: false
+  # The role's paths and ports, from their one definition.
+  vars_files:
+    - ../roles/edot_gateway/defaults/main.yml
+  tasks:
+    - name: Check the collector reports healthy
+      ansible.builtin.uri:
+        url: http://127.0.0.1:{{ edot_health_port }}/
+      become: true
+
+    - name: Read the collector's version
+      ansible.builtin.command:
+        argv: ["{{ edot_base_dir }}/current/elastic-agent", version, --binary-only]
+      become: true
+      register: _edot_version
+      changed_when: false
+
+    - name: Check the collector runs {{ edot_version }}
+      ansible.builtin.assert:
+        that: (edot_version ~ ' ') in _edot_version.stdout
+        fail_msg: "The EDOT Collector runs {{ _edot_version.stdout }}, expected {{ edot_version }}."
+        quiet: true
+
+    # An empty OTLP export, from the gateway's own host with its own
+    # certificate (CA-signed, clientAuth): accepted.
+    - name: Check OTLP/HTTP accepts a sender with a CA-signed certificate
+      ansible.builtin.uri:
+        url: https://{{ ansible_host }}:{{ edot_http_port }}/v1/traces
+        method: POST
+        body_format: json
+        body: {}
+        ca_path: "{{ edot_certs_dir }}/ca.crt"
+        client_cert: "{{ edot_certs_dir }}/node.crt"
+        client_key: "{{ edot_certs_dir }}/node.key"
+      become: true
+
+    # The same export from the controller, without a client certificate:
+    # refused during the TLS handshake (uri reports status -1).
+    - name: Check OTLP/HTTP refuses a sender without a certificate
+      ansible.builtin.uri:
+        url: https://{{ ansible_host }}:{{ edot_http_port }}/v1/traces
+        method: POST
+        body_format: json
+        body: {}
+        ca_path: "{{ elastic_ca_cert }}"
+      delegate_to: localhost
+      become: false
+      register: _edot_no_cert
+      failed_when: _edot_no_cert.status != -1
+
 - name: Fleet Server health check
   hosts: fleet_server
   gather_facts: false

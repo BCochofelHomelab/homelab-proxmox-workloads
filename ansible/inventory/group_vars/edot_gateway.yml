@@ -1,0 +1,8 @@
+---
+# EDOT Collector gateway on the ingest VM (hand-authored).
+# OTLP ports senders (the OTel Demo, your apps) send to, over mTLS.
+edot_grpc_port: 4317
+edot_http_port: 4318
+# The memory_limiter's soft limit; the unit's MemoryMax is 256 MiB above.
+# The VM has 4 GB, shared with Logstash (1 GB heap).
+edot_memory_limit_mib: 512
