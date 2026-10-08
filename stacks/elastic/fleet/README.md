@@ -1,6 +1,6 @@
 # stacks/elastic/fleet
 
-Fleet: the Logstash output (default, mTLS) and Fleet's Elasticsearch output, the Fleet Server host, `fleet-server-policy`, one agent policy per VM role (`elasticsearch-nodes`, `logstash`, `homelab-vms`), and stack monitoring (Elasticsearch, Kibana, Logstash). See [`docs/TERRAFORM.md`](../../../docs/TERRAFORM.md#fleet-stackselasticfleet).
+Fleet: the Logstash output (default, mTLS) and Fleet's Elasticsearch output, the Fleet Server host, `fleet-server-policy`, one agent policy per role (`elasticsearch-nodes`, `logstash`, `homelab-vms`, and for homelab-proxmox-core `homelab-core` with Docker and `proxmox`), and stack monitoring (Elasticsearch, Kibana, Logstash). See [`docs/TERRAFORM.md`](../../../docs/TERRAFORM.md#fleet-stackselasticfleet).
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
@@ -28,10 +28,12 @@ No modules.
 | ---- | ---- |
 | [elasticstack_fleet_agent_policy.agents](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_agent_policy) | resource |
 | [elasticstack_fleet_agent_policy.fleet_server](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_agent_policy) | resource |
+| [elasticstack_fleet_integration.docker](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_integration) | resource |
 | [elasticstack_fleet_integration.fleet_server](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_integration) | resource |
 | [elasticstack_fleet_integration.monitoring](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_integration) | resource |
 | [elasticstack_fleet_integration.system](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_integration) | resource |
 | [elasticstack_fleet_integration_policy.agents_system](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_integration_policy) | resource |
+| [elasticstack_fleet_integration_policy.core_docker](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_integration_policy) | resource |
 | [elasticstack_fleet_integration_policy.elasticsearch_monitoring](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_integration_policy) | resource |
 | [elasticstack_fleet_integration_policy.fleet_server](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_integration_policy) | resource |
 | [elasticstack_fleet_integration_policy.fleet_server_system](https://registry.terraform.io/providers/elastic/elasticstack/latest/docs/resources/fleet_integration_policy) | resource |

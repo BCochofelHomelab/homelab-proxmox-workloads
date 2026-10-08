@@ -150,6 +150,16 @@ locals {
       name        = "Logstash"
       description = "The ingest VM (Logstash, EDOT gateway)"
     }
+    # homelab-proxmox-core's VMs, enrolled by that repo's Ansible.
+    "homelab-core" = {
+      name        = "Homelab core"
+      description = "homelab-proxmox-core's VMs: proxy (Caddy), server01 (CoreDNS, Pi-hole), Docker containers"
+    }
+    # The Proxmox VE host itself (pve1), enrolled from homelab-proxmox-core.
+    "proxmox" = {
+      name        = "Proxmox"
+      description = "The Proxmox VE host (pve1): host metrics, processes (each VM's kvm), journal"
+    }
   }
 }
 
@@ -185,4 +195,23 @@ moved {
 moved {
   from = elasticstack_fleet_integration_policy.vms_system
   to   = elasticstack_fleet_integration_policy.agents_system["homelab-vms"]
+}
+
+# -- Docker on homelab-proxmox-core's VMs ---------------------------------------
+
+resource "elasticstack_fleet_integration" "docker" {
+  name         = "docker"
+  version      = "2.15.3"
+  skip_destroy = true
+}
+
+# Container metrics from the Docker socket and every container's logs
+# (/var/lib/docker/containers), the package's defaults.
+resource "elasticstack_fleet_integration_policy" "core_docker" {
+  name                = "docker-homelab-core"
+  namespace           = "default"
+  description         = "Docker containers' metrics and logs (Caddy, CoreDNS, Pi-hole)"
+  agent_policy_id     = elasticstack_fleet_agent_policy.agents["homelab-core"].policy_id
+  integration_name    = elasticstack_fleet_integration.docker.name
+  integration_version = elasticstack_fleet_integration.docker.version
 }
