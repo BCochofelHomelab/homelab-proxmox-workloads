@@ -60,7 +60,7 @@ Fleet Server (kibana:8220) ─────────────> Elasticsearc
 | Output `fleet-default-output` | Fleet's own Elasticsearch output, adopted with an `import` block: every node, verified against the CA. Used by Fleet Server's policy |
 | Fleet Server host `fleet-server-kibana` | `https://192.168.68.33:8220`, the default |
 | Agent policy `fleet-server-policy` | `fleet_server` and `system` integrations; Ansible enrolls the kibana VM's agent into it as Fleet Server |
-| Agent policy `homelab-vms` | `system` integration; every other VM's agent |
+| Agent policies `elasticsearch-nodes`, `logstash`, `homelab-vms` | One per VM role (`for_each`), each with the `system` integration; Ansible enrolls each VM into its role's policy. Role-specific integrations (stack monitoring) go here |
 | Packages | `fleet_server` 1.6.1, `system` 3.0.0 (compatible with Kibana 9.5.4), kept on destroy |
 
 **Order.** Fleet Server only works with an Elasticsearch output, and the

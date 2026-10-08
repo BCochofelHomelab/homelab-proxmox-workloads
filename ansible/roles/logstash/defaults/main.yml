@@ -1,6 +1,6 @@
 ---
 # logstash_heap_size, logstash_agent_port: group_vars/logstash.yml.
-# logstash_writer_password: group_vars/elastic.sops.yaml.
+# logstash_writer_password: group_vars/all.sops.yaml.
 # Logstash's DEB carries an epoch, unlike Elasticsearch's and Kibana's.
 logstash_package_version: "1:{{ elastic_version }}-1"
 logstash_config_dir: /etc/logstash

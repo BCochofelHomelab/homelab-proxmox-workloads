@@ -12,7 +12,7 @@
       - kibana_encryption_key | length >= 32
     fail_msg: >-
       kibana_system_password (12+ characters) or kibana_encryption_key (32+)
-      is missing from inventory/group_vars/elastic.sops.yaml (docs/ANSIBLE.md).
+      is missing from inventory/group_vars/all.sops.yaml (docs/ANSIBLE.md).
     quiet: true
   no_log: true
 

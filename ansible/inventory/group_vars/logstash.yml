@@ -10,3 +10,6 @@ logstash_heap_size: 1g
 
 # Port every Elastic Agent sends to (Fleet's Logstash output).
 logstash_agent_port: 5044
+
+# Fleet agent policy (stacks/elastic/fleet).
+elastic_agent_policy_id: logstash

@@ -1,7 +1,7 @@
 ---
 # es_cluster_name, es_heap_size: group_vars/elasticsearch.yml.
 # elastic_version, es_http_port, es_transport_port: group_vars/all.yml.
-# elastic_password: group_vars/elastic.sops.yaml (docs/ANSIBLE.md).
+# elastic_password: group_vars/all.sops.yaml (docs/ANSIBLE.md).
 es_config_dir: /etc/elasticsearch
 es_certs_dir: "{{ es_config_dir }}/certs"
 es_data_dir: /var/lib/elasticsearch

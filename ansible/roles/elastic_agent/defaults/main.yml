@@ -1,0 +1,4 @@
+---
+# fleet_url, elastic_agent_policy_id: group_vars.
+elastic_agent_ca: /etc/elastic-agent/ca.crt
+elastic_agent_kibana_url: "https://{{ hostvars[groups['kibana_server'][0]].ansible_host }}:5601"

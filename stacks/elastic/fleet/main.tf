@@ -133,22 +133,56 @@ resource "elasticstack_fleet_integration_policy" "fleet_server_system" {
   integration_version = elasticstack_fleet_integration.system.version
 }
 
-# Every other VM (Elasticsearch, Logstash, OTel Demo); enrolled by Ansible.
-resource "elasticstack_fleet_agent_policy" "vms" {
-  policy_id            = "homelab-vms"
-  name                 = "Homelab VMs"
+# One agent policy per VM role, each with the system integration; Ansible
+# enrolls each VM into its role's policy (elastic_agent_policy_id). Per-role
+# policies are where role-specific integrations go (stack monitoring).
+locals {
+  agent_policies = {
+    "homelab-vms" = {
+      name        = "Homelab VMs"
+      description = "Workload VMs without a role of their own (OTel Demo)"
+    }
+    "elasticsearch-nodes" = {
+      name        = "Elasticsearch nodes"
+      description = "es-01..es-03"
+    }
+    "logstash" = {
+      name        = "Logstash"
+      description = "The ingest VM (Logstash, EDOT gateway)"
+    }
+  }
+}
+
+resource "elasticstack_fleet_agent_policy" "agents" {
+  for_each = local.agent_policies
+
+  policy_id            = each.key
+  name                 = each.value.name
   namespace            = "default"
-  description          = "Elastic stack and workload VMs (homelab-proxmox-workloads, stacks/elastic/fleet)"
+  description          = "${each.value.description} (homelab-proxmox-workloads, stacks/elastic/fleet)"
   monitor_logs         = true
   monitor_metrics      = true
   fleet_server_host_id = elasticstack_fleet_server_host.kibana.host_id
 }
 
-resource "elasticstack_fleet_integration_policy" "vms_system" {
-  name                = "system-homelab-vms"
+resource "elasticstack_fleet_integration_policy" "agents_system" {
+  for_each = local.agent_policies
+
+  name                = "system-${each.key}"
   namespace           = "default"
   description         = "Host logs and metrics"
-  agent_policy_id     = elasticstack_fleet_agent_policy.vms.policy_id
+  agent_policy_id     = elasticstack_fleet_agent_policy.agents[each.key].policy_id
   integration_name    = elasticstack_fleet_integration.system.name
   integration_version = elasticstack_fleet_integration.system.version
+}
+
+# homelab-vms was a single resource before the per-role policies.
+moved {
+  from = elasticstack_fleet_agent_policy.vms
+  to   = elasticstack_fleet_agent_policy.agents["homelab-vms"]
+}
+
+moved {
+  from = elasticstack_fleet_integration_policy.vms_system
+  to   = elasticstack_fleet_integration_policy.agents_system["homelab-vms"]
 }

@@ -12,7 +12,7 @@
       - elastic_password | length >= 12
     fail_msg: >-
       elastic_password is missing or shorter than 12 characters: create
-      inventory/group_vars/elastic.sops.yaml with `sops` (docs/ANSIBLE.md).
+      inventory/group_vars/all.sops.yaml with `sops` (docs/ANSIBLE.md).
     quiet: true
   no_log: true
 
