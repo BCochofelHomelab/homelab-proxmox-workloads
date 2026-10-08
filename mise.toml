@@ -266,6 +266,8 @@ run = "ansible-playbook playbooks/site.yml"
 description = "Run sops with your key, from the current directory: mise run sops -- <file> | updatekeys <file>"
 dir = "{{cwd}}"
 env = { SOPS_AGE_KEY_FILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
+# Never echo the command: `sops set` arguments are secret values.
+quiet = true
 raw = true
 run = "sops"
 
@@ -273,6 +275,8 @@ run = "sops"
 description = "Edit a ~/.secrets file with your key, from ~/.secrets so its .sops.yaml applies: mise run secrets:edit -- homelab-ro.yaml"
 dir = "{{env.HOME}}/.secrets"
 env = { SOPS_AGE_KEY_FILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
+# Never echo the command: `sops set` arguments are secret values.
+quiet = true
 raw = true
 run = "sops"
 
