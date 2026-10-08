@@ -49,6 +49,7 @@ stack's path (`terramate.tm.hcl`, `hcp_workspace`):
 | --- | --- |
 | `stacks/elastic/infra` | `workloads-elastic-infra` |
 | `stacks/otel-demo/infra` | `workloads-otel-demo-infra` |
+| `stacks/elastic/cluster` | `workloads-elastic-cluster` |
 
 Create each one as in core's step 2 before its first `tofu:init`:
 **CLI-driven**, then *Settings → General → Execution Mode* → **Local**
@@ -59,6 +60,32 @@ Default Execution Mode*). The token is the same `TF_TOKEN_app_terraform_io`
 from `~/.secrets/homelab.yaml`, and the Proxmox token and cloud-init
 password are core's `TF_VAR_proxmox_api_token` and `TF_VAR_cipassword`.
 `mise run creds:check` checks the token can read every workspace above.
+
+### Elasticsearch API key (config stacks)
+
+The `config` stacks (ILM, Fleet, Kibana; [`TERRAFORM.md`](TERRAFORM.md))
+authenticate with one Elasticsearch API key, which Kibana and Fleet
+accept too. It's yours only: `ELASTICSEARCH_API_KEY` in
+`~/.secrets/homelab.yaml`, never in `homelab-ro.yaml`.
+
+1. In Kibana, as `elastic`: *Stack Management → API keys → Create API
+   key*, name `opentofu`, type *User API key*, no expiration, and leave
+   *Control security privileges* off: the key then has `elastic`'s own
+   privileges, which these stacks need (index templates, ILM, Fleet,
+   Kibana spaces).
+2. Copy the **Encoded** value (shown once), then add it:
+
+   ```bash
+   mise run secrets:edit -- homelab.yaml
+   ```
+
+   ```yaml
+   ELASTICSEARCH_API_KEY: "<encoded value>"
+   ```
+
+3. `mise run creds:check` checks it authenticates against `es-01`.
+
+Revoke it in the same Kibana page; a new key is the same three steps.
 
 ### Inventory secrets
 

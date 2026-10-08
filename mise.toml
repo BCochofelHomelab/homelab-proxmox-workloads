@@ -295,11 +295,13 @@ pve="${PKR_VAR_proxmox_api_url%/}"
 check "Proxmox token packer@pve!packer" "$pve/version" < <(printf "Authorization: PVEAPIToken=%s=%s\n" "$PKR_VAR_proxmox_api_token_id" "$PKR_VAR_proxmox_api_token_secret")
 check "Proxmox token terraform (TF_VAR_proxmox_api_token)" "$pve/version" < <(printf "Authorization: PVEAPIToken=%s\n" "$TF_VAR_proxmox_api_token")
 # One workspace per stack (terramate.tm.hcl: hcp_workspace).
-for ws in workloads-elastic-infra workloads-otel-demo-infra; do
+for ws in workloads-elastic-infra workloads-otel-demo-infra workloads-elastic-cluster; do
   check "HCP token, workspace homelab-bcochofel-com/$ws" "https://app.terraform.io/api/v2/organizations/homelab-bcochofel-com/workspaces/$ws" < <(printf "Authorization: Bearer %s\n" "$TF_TOKEN_app_terraform_io")
 done
 present PKR_VAR_password_hash "$PKR_VAR_password_hash"
 present TF_VAR_cipassword "$TF_VAR_cipassword"
+# API key of the config stacks (stacks/config.tm.hcl): Elasticsearch, Kibana, Fleet.
+check "Elasticsearch API key (ELASTICSEARCH_API_KEY), es-01" "https://192.168.68.30:9200/_security/_authenticate" < <(printf "Authorization: ApiKey %s\n" "$ELASTICSEARCH_API_KEY")
 exit $rc'"'" || rc=1
 
 echo "== ~/.secrets/homelab-ro.yaml (ai-agent key only)"
@@ -340,7 +342,7 @@ fail() { echo "FAIL  $1"; rc=1; }
 # Only the ai-agent key: an empty HOME hides anything at SOPS's default key path.
 as_agent() { HOME=$(mktemp -d) SOPS_AGE_KEY_FILE=$agent "$@"; }
 
-if env | grep -qE '^(PKR_VAR_|TF_VAR_|TF_TOKEN_|PROXMOX_|GITHUB_PERSONAL)'; then
+if env | grep -qE '^(PKR_VAR_|TF_VAR_|TF_TOKEN_|PROXMOX_|GITHUB_PERSONAL|ELASTICSEARCH_|KIBANA_|FLEET_)'; then
   fail "credentials are exported into this shell"; else ok "no credentials exported into this shell"; fi
 
 if as_agent sops -d "$ro" >/dev/null 2>&1; then
