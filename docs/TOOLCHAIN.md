@@ -151,6 +151,7 @@ doc: `mise ls --current` shows what's installed.
 | --- | --- |
 | [github-mcp-server](https://github.com/github/github-mcp-server) | Read-only GitHub access for the AI agent ([`CREDENTIALS.md`](CREDENTIALS.md) step 8). |
 | [terraform-mcp-server](https://github.com/hashicorp/terraform-mcp-server) | Public registry docs for the AI agent, so provider code isn't written from memory. Downloaded from `releases.hashicorp.com` with HashiCorp's checksum (HashiCorp publishes no GitHub release assets for it). |
+| [mcp-server-elasticsearch](https://github.com/elastic/mcp-server-elasticsearch) | Read-only Elasticsearch access for the AI agent: list indices, mappings, shards, search, ES\|QL ([`CREDENTIALS.md`](CREDENTIALS.md#elasticsearch-mcp-ai-agent)). Deprecated upstream for Kibana's Agent Builder MCP endpoint, which needs an Enterprise licence; pinned as its release binary (`github:` backend, checksum in `mise.lock`). |
 | [mcp-proxmox](https://github.com/gilby125/mcp-proxmox) | Read-only Proxmox access for the AI agent. Not published as a package, so `mise run mcp:install` installs a reviewed commit. |
 | Claude Code | The AI agent itself, installed in the devcontainer ([`DEVCONTAINER.md`](DEVCONTAINER.md)). |
 

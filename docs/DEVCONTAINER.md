@@ -60,7 +60,7 @@ the soft boundary is fine for short, supervised sessions on WSL.
 | `~/.secrets/homelab-ro.yaml`, read-only | The Docker socket |
 | The repo's toolchain from `mise.toml`/`mise.lock` | Your shell environment and dotfiles |
 | Claude Code (CLI and VS Code extension) | |
-| The MCP servers from `.mcp.json` (Proxmox, GitHub, Terraform) | |
+| The MCP servers from `.mcp.json` (Proxmox, GitHub, Terraform, Elasticsearch) | |
 
 The container runs Ubuntu 26.04, the same release as the VMs, from a
 pinned image. The configuration is `.devcontainer/devcontainer.json`; the
@@ -93,8 +93,8 @@ opens it on WSL (soft boundary); you switch to the container explicitly.
    the toolchain (a few minutes). Then sign in to Claude Code once, from the
    Claude Code panel or by running `claude` in the container's terminal.
    The login is kept in a volume, so rebuilds don't ask again. Approve the
-   three project MCP servers when Claude Code asks (or with `/mcp`), then
-   check them with `claude mcp list`: all three show *Connected*.
+   four project MCP servers when Claude Code asks (or with `/mcp`), then
+   check them with `claude mcp list`: all four show *Connected*.
 
 Where you are is shown at the bottom-left of the VS Code window:
 *Dev Container: homelab-proxmox-workloads (ai-agent)* is the hard boundary,
@@ -139,7 +139,7 @@ terramate run -- tofu init -backend=false && terramate run -- tofu validate   # 
 cd ansible && ansible-lint && ansible-playbook playbooks/site.yml --syntax-check && cd ..   # both pass
 
 mise run tofu:plan      # fails: no ~/.secrets/homelab.yaml, and no key for it
-claude mcp list         # proxmox, github and terraform: Connected
+claude mcp list         # proxmox, github, terraform and elasticsearch: Connected
 ```
 
 ## Limits

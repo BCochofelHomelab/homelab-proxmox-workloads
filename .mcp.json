@@ -33,6 +33,19 @@
         "--log-file=${HOME}/.local/state/mcp/terraform-mcp-server.log",
         "--log-format=json"
       ]
+    },
+    "elasticsearch": {
+      "type": "stdio",
+      "command": "sops",
+      "args": [
+        "exec-env",
+        "${HOME}/.secrets/homelab-ro.yaml",
+        "SSL_CERT_FILE=\"$(git rev-parse --show-toplevel)/ansible/pki/elastic-ca.crt\" exec elasticsearch-mcp-server stdio"
+      ],
+      "env": {
+        "SOPS_AGE_KEY_FILE": "${HOME}/.config/sops/age/ai-agent.txt",
+        "ES_URL": "https://192.168.68.30:9200"
+      }
     }
   }
 }

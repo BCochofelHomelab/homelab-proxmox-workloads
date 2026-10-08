@@ -242,7 +242,10 @@ attempting a mutating call and confirming it's refused.
 - [ ] GitHub MCP: add **Issues: write** to its PAT only when Phase C
       starts filing issues; everything else stays read-only.
 - [ ] Elastic MCP: API key with `cluster: [monitor]` and
-      `indices: [*]: [read, view_index_metadata]`.
+      `indices: [*]: [read, view_index_metadata, monitor]` (`monitor` for
+      the server's `_cat` tools). Workloads: `mcp-server-elasticsearch`
+      (Agent Builder's MCP endpoint needs Enterprise), key in
+      `homelab-ro.yaml`, write refused per `boundary:check`.
 - [ ] Kubernetes MCP: a dedicated RO ServiceAccount and `ClusterRole`
       (`get`/`list`/`watch` only) with its own kubeconfig. The human's
       kubeconfig stays full-access.

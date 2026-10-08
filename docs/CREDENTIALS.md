@@ -26,7 +26,7 @@ The step numbers are core's. Other docs here refer to them the same way
 | 5 | `~/.secrets/homelab.yaml` (read-write, your key only) and `~/.secrets/homelab-ro.yaml` (read-only, also the `ai-agent` key) | [Secret files](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#5-secret-files) |
 | 6 | The AI agent uses only the `ai-agent` key (`.claude/settings.json`) | [The AI agent uses only the `ai-agent` key](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#6-the-ai-agent-uses-only-the-ai-agent-key) |
 | 7 | Verify the credentials and the boundary | [Verify the credentials and the boundary](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#7-verify-the-credentials-and-the-boundary) |
-| 8 | MCP servers for the AI agent (Proxmox, GitHub, Terraform), `.mcp.json` | [MCP servers for the AI agent](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#8-mcp-servers-for-the-ai-agent) |
+| 8 | MCP servers for the AI agent (Proxmox, GitHub, Terraform), `.mcp.json`. The Elasticsearch one is this repo's ([below](#elasticsearch-mcp-ai-agent)) | [MCP servers for the AI agent](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#8-mcp-servers-for-the-ai-agent) |
 | 9 | The devcontainer (here: [`DEVCONTAINER.md`](DEVCONTAINER.md)) | [The devcontainer](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#9-the-devcontainer) |
 
 If core is already set up on this machine, there's nothing to redo for
@@ -89,6 +89,64 @@ access (the Elastic MCP) gets its own read-only key.
 3. `mise run creds:check` checks it authenticates against `es-01`.
 
 Revoke it in the same Kibana page; a new key is the same three steps.
+
+### Elasticsearch MCP (AI agent)
+
+The AI agent reads Elasticsearch through `mcp-server-elasticsearch`
+(`.mcp.json`, server `elasticsearch`) with its **own read-only** API key,
+`ES_API_KEY` in `~/.secrets/homelab-ro.yaml`, the file the `ai-agent` key
+opens. Like the other MCP servers, it starts through `sops exec-env`, so
+the key exists only in that process.
+
+| Privilege | For the server's tools |
+| --- | --- |
+| cluster `monitor` | Cluster-level read (health, stats) |
+| indices `*`: `read` | `search`, `esql` |
+| indices `*`: `view_index_metadata` | `get_mappings` |
+| indices `*`: `monitor` | `list_indices`, `get_shards` (the `_cat` APIs) |
+
+Nothing that writes, deletes, or touches security, ILM, templates or
+Fleet. Restricted system indices are excluded (`*` doesn't match them).
+
+1. Create the key in Kibana *Dev Tools*, logged in as `elastic`:
+
+   ```text
+   POST /_security/api_key
+   {
+     "name": "ai-agent-elastic-mcp",
+     "role_descriptors": {
+       "ai-agent-read-only": {
+         "cluster": ["monitor"],
+         "indices": [
+           { "names": ["*"], "privileges": ["read", "view_index_metadata", "monitor"] }
+         ]
+       }
+     },
+     "metadata": { "purpose": "Elastic MCP for the AI agent (homelab-proxmox-workloads .mcp.json)" }
+   }
+   ```
+
+2. Copy the response's `encoded` value and add it to the read-only file:
+
+   ```bash
+   mise run secrets:edit -- homelab-ro.yaml
+   ```
+
+   ```yaml
+   ES_API_KEY: "<encoded value>"
+   ```
+
+3. Check it:
+   - `mise run creds:check`: the key can list indices (HTTP 200);
+   - `mise run boundary:check`, on WSL **and** in the devcontainer: a write
+     with it (creating an index) is refused (HTTP 403).
+
+**TLS:** the server has no CA option, only one that skips verification,
+which isn't used. Its Elasticsearch client uses the system's OpenSSL,
+which honours `SSL_CERT_FILE`: `.mcp.json` sets it to
+`ansible/pki/elastic-ca.crt` (from the repository's root), so it trusts the
+internal CA and nothing else. It connects to `es-01`
+(`https://192.168.68.30:9200`).
 
 ### Inventory secrets
 
