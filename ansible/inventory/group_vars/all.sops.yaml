@@ -2,6 +2,7 @@ elastic_password: ENC[AES256_GCM,data:GbaMnT7rMaNfK8h2zWx2GmIILkZ7xdQZ39h9JKHZGU
 kibana_system_password: ENC[AES256_GCM,data:sEGRjznJ1z1MtGPyPCCP2Cep3k5mhDQoGCIX+nGw7HA=,iv:fCvvB+g+YuUjH0psglLNkqDeXcHQNFxFdoeIkRwglvE=,tag:9BAFBrCJoZOuRP8RqGvBUg==,type:str]
 kibana_encryption_key: ENC[AES256_GCM,data:vZMUnhBeqqxWVGfUDXMtrwASS5UleIKs8Zf3iABhroRCh/HCiJ5s3TUU4St3T0+MrH10/4BT0CIahQ5PgOaQAA==,iv:p0DVNPXokE7WifPXyNEeHNnepyQGVrdttkdwJV/pCuM=,tag:b+dcAXZAlAtESYZqKKY7NA==,type:str]
 logstash_writer_password: ENC[AES256_GCM,data:BoWA0CUx45dECp7qFYRmal23wSYJyVhKFWQQ8KqaJ2o=,iv:zBsLFvluv4ucdPDnP8E3CC864bhQf4+bFnrOF4WWPZk=,tag:6dA9g3TMZmLAL5v3U0g4Tg==,type:str]
+remote_monitoring_password: ENC[AES256_GCM,data:NPwW2oFokN1PLAn0mw8GNOKPSuXcWhQMwfAZJ9MUrS8=,iv:nz2IsSlNwvN4XIjgQkIUtVKq06ILSXz2cPyHmeqbrNc=,tag:sTeVvBNXWNdXf/BNN2IlYw==,type:str]
 sops:
     age:
         - enc: |
@@ -13,7 +14,7 @@ sops:
             uYrE/2PmLWeNfnuSonMcT8xJR/+HV6FRPMWt1h2ZJSoH7A1UfwbUSg==
             -----END AGE ENCRYPTED FILE-----
           recipient: age1fucsvstpr082zemctfpjn2xkwq86thvlzan4tp9fyvg2q0rnnemshw690m
-    lastmodified: "2026-10-08T11:05:50Z"
-    mac: ENC[AES256_GCM,data:FgC9qYxqHdh7fRF0v188G4BJIKcBzVNwsaCmxk0LRMYUPukZnxQVU4nrCc7Q2uL1PCsvoOTLnd+sqg/l4OF6hIEn7xa8C2i2DtAnLVsx4H73WcbzvYUtaDLlcAYVQJXeo85/IJD99FMNATCPw86TDgvNSV6wmGZWoyjHNi5QPvg=,iv:4UuWjK6X//kd6SLRdHwapnwzxv+rv8A/hAlK9AqdVNE=,tag:aGF9rSKxs7NTMhKzu7kFlQ==,type:str]
+    lastmodified: "2026-10-08T14:11:06Z"
+    mac: ENC[AES256_GCM,data:l9bnlj+Cr9crGGkX+qLTPG0MkWy0MdRc7ExEjOpJ5uR2DhTJaKd0PLQnqDjGFDPfR/PFFeMexk51il5tLc2pX9/nmRKjXj63RL6+ieCkdbbIgPzaupY024SjYGcl55PzjQtt4LZAqKNi5V/GMLhS6/Uagt4urCqFMAUvAkP62uU=,iv:SQ7LIWYQ0DCl+XTrwzOoEn2Oo8F6wSYjNgqAl5BMzWM=,tag:VG0itxHo+uP/L4Lph6Lrnw==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.13.3

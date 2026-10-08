@@ -173,7 +173,7 @@ mise run sops -- ansible/inventory/group_vars/<group>.sops.yaml
 
 | File | Keys | Used by |
 | --- | --- | --- |
-| `all.sops.yaml` (every host) | `elastic_password`, `kibana_system_password`, `kibana_encryption_key`, `logstash_writer_password` | Elasticsearch, Kibana, Logstash ([`ANSIBLE.md`](ANSIBLE.md#secrets)) |
+| `all.sops.yaml` (every host) | `elastic_password`, `kibana_system_password`, `kibana_encryption_key`, `logstash_writer_password`, `remote_monitoring_password` (also read by `stacks/elastic/fleet`) | Elasticsearch, Kibana, Logstash ([`ANSIBLE.md`](ANSIBLE.md#secrets)) |
 
 ### The agents' client key
 
