@@ -15,7 +15,6 @@
       delegate_to: localhost
       become: false
       register: _es_root
-      no_log: true
 
     - name: Check every node runs {{ elastic_version }}
       ansible.builtin.assert:
@@ -23,7 +22,7 @@
         fail_msg: "{{ inventory_hostname }} runs {{ _es_root.json.version.number }}, expected {{ elastic_version }}."
         quiet: true
 
-    - name: Check the cluster is green with every node
+    - name: Wait for the cluster to be green with every node
       ansible.builtin.uri:
         url: "https://{{ ansible_host }}:{{ es_http_port }}/_cluster/health"
         ca_path: "{{ elastic_ca_cert }}"
@@ -33,11 +32,14 @@
       delegate_to: localhost
       become: false
       register: _es_health
-      failed_when: >-
-        _es_health.json.status != 'green'
-        or _es_health.json.number_of_nodes != groups['elasticsearch'] | length
+      # Waits: right after formation the cluster is briefly yellow while
+      # the system indices' replicas are allocated.
+      until: >-
+        _es_health.status == 200 and _es_health.json.status == 'green'
+        and _es_health.json.number_of_nodes == groups['elasticsearch'] | length
+      retries: 30
+      delay: 10
       run_once: true
-      no_log: true
 
     - name: Show the cluster's health
       ansible.builtin.debug:

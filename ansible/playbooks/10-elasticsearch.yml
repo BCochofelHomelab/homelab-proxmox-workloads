@@ -27,7 +27,6 @@
       retries: 60
       delay: 10
       run_once: true
-      no_log: true
 
 # Nodes that were already running and whose configuration, certificate,
 # heap or package changed: one at a time, waiting for green in between.

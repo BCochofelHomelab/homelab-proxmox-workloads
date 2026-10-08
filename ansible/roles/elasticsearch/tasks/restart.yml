@@ -15,7 +15,6 @@
   until: _es_health.status == 200 and _es_health.json.status == 'green'
   retries: "{{ es_health_retries }}"
   delay: "{{ es_health_delay }}"
-  no_log: true
 
 - name: Allocate primaries only while the node is down
   ansible.builtin.uri:
@@ -28,7 +27,6 @@
     url_password: "{{ elastic_password }}"
     force_basic_auth: true
   become: true
-  no_log: true
 
 - name: Restart Elasticsearch on {{ inventory_hostname }}
   ansible.builtin.systemd_service:
@@ -48,7 +46,6 @@
   until: _es_nodes.status == 200 and inventory_hostname in (_es_nodes.json | map(attribute='name') | list)
   retries: "{{ es_health_retries }}"
   delay: "{{ es_health_delay }}"
-  no_log: true
 
 - name: Re-enable shard allocation
   ansible.builtin.uri:
@@ -61,7 +58,6 @@
     url_password: "{{ elastic_password }}"
     force_basic_auth: true
   become: true
-  no_log: true
 
 - name: Wait for green after restarting {{ inventory_hostname }}
   ansible.builtin.uri:
@@ -75,4 +71,3 @@
   until: _es_health.status == 200 and _es_health.json.status == 'green'
   retries: "{{ es_health_retries }}"
   delay: "{{ es_health_delay }}"
-  no_log: true
