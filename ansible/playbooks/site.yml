@@ -5,5 +5,7 @@
   import_playbook: 00-bootstrap.yml
 - name: Elasticsearch
   import_playbook: 10-elasticsearch.yml
+- name: Kibana
+  import_playbook: 20-kibana.yml
 - name: Health check
   import_playbook: 99-healthcheck.yml

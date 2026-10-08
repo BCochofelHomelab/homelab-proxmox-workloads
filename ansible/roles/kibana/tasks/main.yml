@@ -1,0 +1,174 @@
+---
+# Installs Kibana, connects it to Elasticsearch as kibana_system over
+# verified TLS, and serves it over HTTPS with a certificate from the
+# internal CA (core's Caddy is the public entry point).
+
+- name: Check the Kibana secrets are available
+  ansible.builtin.assert:
+    that:
+      - kibana_system_password is defined
+      - kibana_system_password | length >= 12
+      - kibana_encryption_key is defined
+      - kibana_encryption_key | length >= 32
+    fail_msg: >-
+      kibana_system_password (12+ characters) or kibana_encryption_key (32+)
+      is missing from inventory/group_vars/elastic.sops.yaml (docs/ANSIBLE.md).
+    quiet: true
+  no_log: true
+
+# -- kibana_system's password in Elasticsearch -------------------------------
+
+- name: Check whether kibana_system already has its password
+  ansible.builtin.uri:
+    url: "{{ es_hosts | first }}/_security/_authenticate"
+    ca_path: "{{ elastic_ca_cert }}"
+    url_username: kibana_system
+    url_password: "{{ kibana_system_password }}"
+    force_basic_auth: true
+    status_code: [200, 401]
+  delegate_to: localhost
+  become: false
+  register: _kibana_system_auth
+
+- name: Set kibana_system's password
+  ansible.builtin.uri:
+    url: "{{ es_hosts | first }}/_security/user/kibana_system/_password"
+    method: POST
+    body_format: json
+    body:
+      password: "{{ kibana_system_password }}"
+    ca_path: "{{ elastic_ca_cert }}"
+    url_username: elastic
+    url_password: "{{ elastic_password }}"
+    force_basic_auth: true
+  delegate_to: localhost
+  become: false
+  no_log: true
+  changed_when: true
+  when: _kibana_system_auth.status == 401
+
+# -- Package ------------------------------------------------------------------
+
+- name: Install Kibana {{ elastic_version }}
+  ansible.builtin.apt:
+    name: "kibana={{ elastic_version }}"
+    allow_change_held_packages: true
+  become: true
+  notify: Restart Kibana
+
+- name: Hold the package at that version (apt upgrade never touches it)
+  ansible.builtin.dpkg_selections:
+    name: kibana
+    selection: hold
+  become: true
+
+# -- TLS ----------------------------------------------------------------------
+
+- name: Issue Kibana's certificate
+  ansible.builtin.include_role:
+    name: elastic_pki
+  vars:
+    pki_cert_dir: "{{ kibana_certs_dir }}"
+    pki_group: kibana
+
+- name: Restart Kibana if its certificate changed
+  ansible.builtin.debug:
+    msg: Kibana's key or certificates changed.
+  changed_when: true
+  notify: Restart Kibana
+  when: pki_changed
+
+# -- Keystore -----------------------------------------------------------------
+
+- name: Check the keystore exists
+  ansible.builtin.stat:
+    path: "{{ kibana_keystore }}"
+  become: true
+  register: _kibana_keystore
+
+- name: Create the keystore
+  ansible.builtin.command: /usr/share/kibana/bin/kibana-keystore create
+  become: true
+  changed_when: true
+  when: not _kibana_keystore.stat.exists
+
+# Keystore values can't be read back, so a hash of what was written records
+# whether they changed (root-only; a hash, not the secrets).
+- name: Read the hash of the keystore's current secrets
+  ansible.builtin.slurp:
+    src: "{{ kibana_config_dir }}/.keystore.sha256"
+  become: true
+  register: _kibana_keystore_hash
+  failed_when: false
+
+- name: Write the secrets into the keystore
+  ansible.builtin.command:
+    argv: [/usr/share/kibana/bin/kibana-keystore, add, --stdin, --force, "{{ item.key }}"]
+    stdin: "{{ item.value }}"
+  loop: "{{ kibana_keystore_entries | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  become: true
+  no_log: true
+  changed_when: true
+  notify: Restart Kibana
+  when: >-
+    (_kibana_keystore_hash.content | default('') | b64decode | trim)
+    != (kibana_keystore_entries | to_json | hash('sha256'))
+
+- name: Record the hash of the keystore's secrets
+  ansible.builtin.copy:
+    content: "{{ kibana_keystore_entries | to_json | hash('sha256') }}\n"
+    dest: "{{ kibana_config_dir }}/.keystore.sha256"
+    owner: root
+    group: root
+    mode: "0600"
+  become: true
+  no_log: true
+
+- name: Let Kibana read its keystore
+  ansible.builtin.file:
+    path: "{{ kibana_keystore }}"
+    owner: root
+    group: kibana
+    mode: "0660"
+  become: true
+
+# -- Configuration and service ------------------------------------------------
+
+- name: Write kibana.yml
+  ansible.builtin.template:
+    src: kibana.yml.j2
+    dest: "{{ kibana_config_dir }}/kibana.yml"
+    owner: root
+    group: kibana
+    mode: "0660"
+  become: true
+  notify: Restart Kibana
+
+- name: Start Kibana and enable it at boot
+  ansible.builtin.systemd_service:
+    name: kibana
+    state: started
+    enabled: true
+  become: true
+
+- name: Apply pending restarts
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for Kibana to be available
+  ansible.builtin.uri:
+    url: "https://{{ ansible_host }}:{{ kibana_port }}/api/status"
+    ca_path: "{{ elastic_ca_cert }}"
+    url_username: elastic
+    url_password: "{{ elastic_password }}"
+    force_basic_auth: true
+    status_code: [200, 503]
+  delegate_to: localhost
+  become: false
+  register: _kibana_status
+  until: >-
+    _kibana_status.status == 200
+    and _kibana_status.json.status.overall.level == 'available'
+  retries: "{{ kibana_status_retries }}"
+  delay: "{{ kibana_status_delay }}"

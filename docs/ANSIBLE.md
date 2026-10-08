@@ -33,6 +33,7 @@ inventory secrets and the CA key only while a task needs them.
 | --- | --- |
 | `group_vars/all.yml` | `elastic_version` (every Elastic package), the APT repository, the CA paths, the Elasticsearch ports and endpoints |
 | `group_vars/elasticsearch.yml` | Cluster name, heap, the data disk's mount point |
+| `group_vars/kibana_server.yml` | Kibana's public URL (through core's Caddy) |
 | `group_vars/elastic.sops.yaml` | Secrets for the Elastic stack, SOPS-encrypted (below) |
 
 ## Playbooks
@@ -41,26 +42,41 @@ inventory secrets and the CA key only while a task needs them.
 | --- | --- |
 | `00-bootstrap.yml` | Preflight checks (`common`), then formats and mounts each data disk (`data_disk`) before any service is installed |
 | `10-elasticsearch.yml` | Elastic's APT repository (`elastic_repo`), then Elasticsearch (`elasticsearch`) on every node; waits for green; rolling restart of nodes whose configuration changed |
-| `99-healthcheck.yml` | From the controller, over TLS verified against the CA: every node answers as `elastic`, runs `elastic_version`, and the cluster is green with every node |
+| `20-kibana.yml` | Kibana (`kibana`): `kibana_system`'s password, package, certificate, keystore, configuration; waits until available |
+| `99-healthcheck.yml` | From the controller, over TLS verified against the CA: every Elasticsearch node answers as `elastic` and runs `elastic_version`, the cluster is green with every node, Kibana is available and runs `elastic_version`. Kibana through core's Caddy is reported without failing the run |
 
 ## Secrets
 
 `inventory/group_vars/elastic.sops.yaml` (group `elastic`), encrypted to
 your age key only, never to the AI agent's:
 
-```yaml
-elastic_password: <the elastic superuser's password, 12+ characters>
-```
+| Key | For |
+| --- | --- |
+| `elastic_password` | The `elastic` superuser (12+ characters) |
+| `kibana_system_password` | The built-in `kibana_system` user Kibana connects as (12+ characters) |
+| `kibana_encryption_key` | Kibana's saved-objects encryption key (32+ characters). Fleet and alerting secrets are encrypted with it: changing or losing it makes them unreadable. Kibana's session and reporting keys are derived from it. |
 
-Create it from the repo root, where `.sops.yaml` applies:
+Create the file once, from the repo root (`.sops.yaml` applies there),
+with a generated password that's never shown:
 
 ```bash
-sops ansible/inventory/group_vars/elastic.sops.yaml
+printf 'elastic_password: "%s"\n' "$(openssl rand -base64 24)" \
+  | sops encrypt --filename-override ansible/inventory/group_vars/elastic.sops.yaml \
+  > ansible/inventory/group_vars/elastic.sops.yaml
 ```
 
-and edit it later with `mise run sops -- ansible/inventory/group_vars/elastic.sops.yaml`.
-Later playbooks add their own keys to the same file (Kibana's
-`kibana_system` password and encryption keys, Logstash's credentials).
+Add a key to it later, generated the same way (`mise run sops` passes
+your key, needed to re-encrypt):
+
+```bash
+mise run sops -- set ansible/inventory/group_vars/elastic.sops.yaml \
+  '["kibana_system_password"]' "\"$(openssl rand -base64 24)\""
+mise run sops -- set ansible/inventory/group_vars/elastic.sops.yaml \
+  '["kibana_encryption_key"]' "\"$(openssl rand -hex 32)\""
+```
+
+See or edit the values with `mise run sops -- ansible/inventory/group_vars/elastic.sops.yaml`.
+Logstash's credentials will be added the same way.
 
 ## Internal CA
 
@@ -118,6 +134,24 @@ re-enables allocation and waits for green before the next node.
 To start over with an empty cluster, stop Elasticsearch on every node and
 empty `/var/lib/elasticsearch` on all of them; the next run bootstraps a
 new cluster.
+
+## Kibana
+
+- **Package:** `kibana=<elastic_version>`, held, like Elasticsearch.
+- **Elasticsearch:** connects to every node as `kibana_system`, verifying
+  their certificates against the internal CA. The playbook sets
+  `kibana_system`'s password in Elasticsearch (as `elastic`) when it
+  doesn't authenticate yet.
+- **HTTPS:** Kibana listens on `192.168.68.33:5601` with its own
+  certificate from the internal CA. People use
+  `https://kibana.homelab.bcochofel.com`: core's Caddy terminates TLS with
+  a Let's Encrypt certificate and proxies to Kibana, trusting the internal
+  CA (`homelab-proxmox-core`).
+- **Secrets:** `elasticsearch.password` and the three encryption keys live
+  in Kibana's keystore. Their values can't be read back, so a SHA-256 of
+  what was written (`/etc/kibana/.keystore.sha256`, root-only) tells the
+  next run whether they changed; then they're rewritten and Kibana
+  restarts.
 
 ## The AI agent
 

@@ -1,0 +1,34 @@
+# {{ ansible_managed }}
+# Kibana {{ elastic_version }} on {{ inventory_hostname }}. Secrets
+# (elasticsearch.password, encryption keys) are in the keystore.
+
+server.name: {{ inventory_hostname }}
+server.host: "{{ ansible_host }}"
+server.port: {{ kibana_port }}
+# What people use, through core's Caddy.
+server.publicBaseUrl: "{{ kibana_public_url }}"
+
+# HTTPS with the internal CA's certificate: Caddy verifies it.
+server.ssl.enabled: true
+server.ssl.certificate: {{ kibana_certs_dir }}/node.crt
+server.ssl.key: {{ kibana_certs_dir }}/node.key
+
+elasticsearch.hosts:
+{% for host in es_hosts %}
+  - {{ host }}
+{% endfor %}
+elasticsearch.username: kibana_system
+elasticsearch.ssl.certificateAuthorities: [{{ kibana_certs_dir }}/ca.crt]
+elasticsearch.ssl.verificationMode: full
+
+logging:
+  appenders:
+    file:
+      type: file
+      fileName: /var/log/kibana/kibana.log
+      layout:
+        type: json
+  root:
+    appenders: [default, file]
+
+pid.file: /run/kibana/kibana.pid

@@ -48,3 +48,43 @@
           {{ _es_health.json.number_of_nodes }} nodes,
           {{ _es_health.json.active_shards }} active shards
       run_once: true
+
+- name: Kibana health check
+  hosts: kibana_server
+  gather_facts: false
+  tasks:
+    - name: Wait for Kibana to be available over verified TLS
+      ansible.builtin.uri:
+        url: "https://{{ ansible_host }}:5601/api/status"
+        ca_path: "{{ elastic_ca_cert }}"
+        url_username: elastic
+        url_password: "{{ elastic_password }}"
+        force_basic_auth: true
+        status_code: [200, 503]
+      delegate_to: localhost
+      become: false
+      register: _kibana_status
+      until: >-
+        _kibana_status.status == 200
+        and _kibana_status.json.status.overall.level == 'available'
+      retries: 30
+      delay: 10
+
+    - name: Check Kibana runs {{ elastic_version }}
+      ansible.builtin.assert:
+        that: _kibana_status.json.version.number == elastic_version
+        fail_msg: "Kibana runs {{ _kibana_status.json.version.number }}, expected {{ elastic_version }}."
+        quiet: true
+
+    # Through core's Caddy (homelab-proxmox-core): an external dependency,
+    # so reported without failing the playbook.
+    - name: Check Kibana answers at {{ kibana_public_url }} (through core's Caddy)
+      ansible.builtin.uri:
+        url: "{{ kibana_public_url }}/api/status"
+        url_username: elastic
+        url_password: "{{ elastic_password }}"
+        force_basic_auth: true
+      delegate_to: localhost
+      become: false
+      register: _kibana_public
+      ignore_errors: true

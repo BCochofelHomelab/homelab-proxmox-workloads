@@ -1,0 +1,7 @@
+---
+# Kibana (hand-authored).
+
+# The URL people use: core's Caddy (homelab-proxmox-core) terminates TLS
+# with a Let's Encrypt certificate and proxies to this VM over HTTPS,
+# trusting the internal CA.
+kibana_public_url: https://kibana.homelab.bcochofel.com
