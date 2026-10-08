@@ -1,4 +1,6 @@
 elastic_password: ENC[AES256_GCM,data:GbaMnT7rMaNfK8h2zWx2GmIILkZ7xdQZ39h9JKHZGUo=,iv:DlrTAsDXqvXmnbS76X1to5Jodjw2l1M8j4mV6DYxBwo=,tag:5jLQiLwk+IZPeQFHyTyalA==,type:str]
+kibana_system_password: ENC[AES256_GCM,data:sEGRjznJ1z1MtGPyPCCP2Cep3k5mhDQoGCIX+nGw7HA=,iv:fCvvB+g+YuUjH0psglLNkqDeXcHQNFxFdoeIkRwglvE=,tag:9BAFBrCJoZOuRP8RqGvBUg==,type:str]
+kibana_encryption_key: ENC[AES256_GCM,data:vZMUnhBeqqxWVGfUDXMtrwASS5UleIKs8Zf3iABhroRCh/HCiJ5s3TUU4St3T0+MrH10/4BT0CIahQ5PgOaQAA==,iv:p0DVNPXokE7WifPXyNEeHNnepyQGVrdttkdwJV/pCuM=,tag:b+dcAXZAlAtESYZqKKY7NA==,type:str]
 sops:
     age:
         - enc: |
@@ -10,7 +12,7 @@ sops:
             uYrE/2PmLWeNfnuSonMcT8xJR/+HV6FRPMWt1h2ZJSoH7A1UfwbUSg==
             -----END AGE ENCRYPTED FILE-----
           recipient: age1fucsvstpr082zemctfpjn2xkwq86thvlzan4tp9fyvg2q0rnnemshw690m
-    lastmodified: "2026-10-07T22:37:17Z"
-    mac: ENC[AES256_GCM,data:bXlGmFYP0nXB5o15zVPCbCJY/ZamGllVqshPOFvsLlxRex8vywCJMSFezG75zNoISPMvuULyyG8DWC1t/eLNag+RKeiURMwpHFhBpelmuK0JP35f+3fdl4mWOpPdmdxJrbt6mzmvT77npKAvdXzsLOlrLFozgAr9Mo+6m0qRizg=,iv:m1vm9iXmBY1+ylJTpRQSlnqUuqj1qAX6hl17fjMGDM0=,tag:0vM/fax9DSrHZ4mqej58MA==,type:str]
+    lastmodified: "2026-10-08T09:39:46Z"
+    mac: ENC[AES256_GCM,data:1wAvpr93+hS4mBJN6CAqmkuYUUroc0rSML9FgiPvfU8jCjw/yYl5CMT2AmfbNkKEH1F1UNldnvKPxCoH4uDqjltp7w81jEHi4X9rkda3PZ7TgUZfLfUmqTm23gIdGDnGIdEe1/u/6LG4fLYsbyjj/9NfxwaNohg4uDYaijg6Li4=,iv:jgukr3rAOcdlr+LdnAS2wv76Uh5IMKUEV0Yy3x0YHuo=,tag:mO/hMH3VRl1e5ybQxKK6pQ==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.13.3
