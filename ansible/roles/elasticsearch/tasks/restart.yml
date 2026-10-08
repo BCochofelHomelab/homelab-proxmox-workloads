@@ -1,0 +1,73 @@
+---
+# Rolling restart of one node (run with serial: 1, playbooks/10-elasticsearch.yml):
+# stop replica allocation, restart, wait for the node to rejoin, re-enable
+# allocation, wait for green. Only for nodes flagged by main.yml.
+
+- name: Wait for the cluster to be green before restarting {{ inventory_hostname }}
+  ansible.builtin.uri:
+    url: "https://localhost:{{ es_http_port }}/_cluster/health?wait_for_status=green&timeout=30s"
+    ca_path: "{{ es_certs_dir }}/ca.crt"
+    url_username: elastic
+    url_password: "{{ elastic_password }}"
+    force_basic_auth: true
+  become: true
+  register: _es_health
+  until: _es_health.status == 200 and _es_health.json.status == 'green'
+  retries: "{{ es_health_retries }}"
+  delay: "{{ es_health_delay }}"
+
+- name: Allocate primaries only while the node is down
+  ansible.builtin.uri:
+    url: "https://localhost:{{ es_http_port }}/_cluster/settings"
+    method: PUT
+    body_format: json
+    body: { persistent: { cluster.routing.allocation.enable: primaries } }
+    ca_path: "{{ es_certs_dir }}/ca.crt"
+    url_username: elastic
+    url_password: "{{ elastic_password }}"
+    force_basic_auth: true
+  become: true
+
+- name: Restart Elasticsearch on {{ inventory_hostname }}
+  ansible.builtin.systemd_service:
+    name: elasticsearch
+    state: restarted
+  become: true
+
+- name: Wait for {{ inventory_hostname }} to rejoin the cluster
+  ansible.builtin.uri:
+    url: "https://localhost:{{ es_http_port }}/_cat/nodes?h=name&format=json"
+    ca_path: "{{ es_certs_dir }}/ca.crt"
+    url_username: elastic
+    url_password: "{{ elastic_password }}"
+    force_basic_auth: true
+  become: true
+  register: _es_nodes
+  until: _es_nodes.status == 200 and inventory_hostname in (_es_nodes.json | map(attribute='name') | list)
+  retries: "{{ es_health_retries }}"
+  delay: "{{ es_health_delay }}"
+
+- name: Re-enable shard allocation
+  ansible.builtin.uri:
+    url: "https://localhost:{{ es_http_port }}/_cluster/settings"
+    method: PUT
+    body_format: json
+    body: { persistent: { cluster.routing.allocation.enable: null } }
+    ca_path: "{{ es_certs_dir }}/ca.crt"
+    url_username: elastic
+    url_password: "{{ elastic_password }}"
+    force_basic_auth: true
+  become: true
+
+- name: Wait for green after restarting {{ inventory_hostname }}
+  ansible.builtin.uri:
+    url: "https://localhost:{{ es_http_port }}/_cluster/health?wait_for_status=green&timeout=30s"
+    ca_path: "{{ es_certs_dir }}/ca.crt"
+    url_username: elastic
+    url_password: "{{ elastic_password }}"
+    force_basic_auth: true
+  become: true
+  register: _es_health
+  until: _es_health.status == 200 and _es_health.json.status == 'green'
+  retries: "{{ es_health_retries }}"
+  delay: "{{ es_health_delay }}"

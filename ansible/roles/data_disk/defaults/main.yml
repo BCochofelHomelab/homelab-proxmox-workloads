@@ -1,0 +1,7 @@
+---
+# The second disk OpenTofu attaches as scsi1 (modules/vm, data_disk).
+# Proxmox exposes it with a stable by-id name, unlike /dev/sdX.
+data_disk_device: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1
+# data_disk_mount_point: required, set per group (e.g. group_vars/elasticsearch.yml).
+data_disk_fstype: ext4
+data_disk_mount_opts: defaults,noatime

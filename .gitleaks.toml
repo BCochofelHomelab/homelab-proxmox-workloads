@@ -8,6 +8,8 @@ description = "Paths that never hold real secrets"
 paths = [
   # SOPS-encrypted files are safe to commit
   '''.*\.sops\.ya?ml$''',
+  # The internal CA's SOPS-encrypted key (ansible/pki/)
+  '''(^|/)pki/[^/]+\.key\.sops$''',
   # Lockfile checksums look like secrets but aren't
   '''(^|/)\.terraform\.lock\.hcl$''',
   '''(^|/)mise\.lock$''',

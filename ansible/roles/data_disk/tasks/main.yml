@@ -1,0 +1,33 @@
+---
+# Formats the data disk (only if it has no filesystem yet) and mounts it
+# where the host's service keeps its data, before that service's package is
+# installed. Ownership of the mount point is the service role's job: its
+# user doesn't exist yet when this runs.
+
+- name: Check the data disk exists
+  ansible.builtin.stat:
+    path: "{{ data_disk_device }}"
+  register: _data_disk
+
+- name: Fail if the data disk is missing
+  ansible.builtin.assert:
+    that: _data_disk.stat.exists
+    fail_msg: >-
+      {{ data_disk_device }} doesn't exist: give this VM a data_disk in its
+      OpenTofu stack, or unset data_disk_mount_point for its group.
+    quiet: true
+
+- name: Create a filesystem on the data disk (no-op if it has one)
+  community.general.filesystem:
+    fstype: "{{ data_disk_fstype }}"
+    dev: "{{ data_disk_device }}"
+  become: true
+
+- name: Mount the data disk at {{ data_disk_mount_point }}
+  ansible.posix.mount:
+    path: "{{ data_disk_mount_point }}"
+    src: "{{ data_disk_device }}"
+    fstype: "{{ data_disk_fstype }}"
+    opts: "{{ data_disk_mount_opts }}"
+    state: mounted
+  become: true

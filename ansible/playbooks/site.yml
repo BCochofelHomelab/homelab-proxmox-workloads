@@ -1,0 +1,9 @@
+---
+# Full provision. Run after `mise run tofu:apply` has generated the
+# inventory files (inventory/*.ini): `mise run ansible:site`.
+- name: Bootstrap
+  import_playbook: 00-bootstrap.yml
+- name: Elasticsearch
+  import_playbook: 10-elasticsearch.yml
+- name: Health check
+  import_playbook: 99-healthcheck.yml

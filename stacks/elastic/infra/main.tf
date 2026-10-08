@@ -16,7 +16,7 @@ locals {
     "es-02" = { ip_cidr = "192.168.68.31/22", cores = 2, memory = 8192, disk = 50, data_disk = 200, groups = ["elasticsearch"] }
     "es-03" = { ip_cidr = "192.168.68.32/22", cores = 2, memory = 8192, disk = 50, data_disk = 200, groups = ["elasticsearch"] }
     # Kibana, and the template's Elastic Agent enrolled as Fleet Server.
-    "kibana" = { ip_cidr = "192.168.68.33/22", cores = 2, memory = 4096, disk = 50, data_disk = null, groups = ["kibana", "fleet_server"] }
+    "kibana" = { ip_cidr = "192.168.68.33/22", cores = 2, memory = 4096, disk = 50, data_disk = null, groups = ["kibana_server", "fleet_server"] }
     # Logstash (every agent's output) and the EDOT Collector gateway (OTLP).
     "ingest" = { ip_cidr = "192.168.68.34/22", cores = 2, memory = 4096, disk = 50, data_disk = 50, groups = ["logstash", "edot_gateway"] }
   }

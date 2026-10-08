@@ -1,0 +1,50 @@
+---
+# Checked from the controller, as any client would: TLS verified against
+# the internal CA, authenticated as elastic.
+- name: Elasticsearch health check
+  hosts: elasticsearch
+  gather_facts: false
+  tasks:
+    - name: Check every node answers over verified TLS
+      ansible.builtin.uri:
+        url: "https://{{ ansible_host }}:{{ es_http_port }}/"
+        ca_path: "{{ elastic_ca_cert }}"
+        url_username: elastic
+        url_password: "{{ elastic_password }}"
+        force_basic_auth: true
+      delegate_to: localhost
+      become: false
+      register: _es_root
+
+    - name: Check every node runs {{ elastic_version }}
+      ansible.builtin.assert:
+        that: _es_root.json.version.number == elastic_version
+        fail_msg: "{{ inventory_hostname }} runs {{ _es_root.json.version.number }}, expected {{ elastic_version }}."
+        quiet: true
+
+    - name: Wait for the cluster to be green with every node
+      ansible.builtin.uri:
+        url: "https://{{ ansible_host }}:{{ es_http_port }}/_cluster/health"
+        ca_path: "{{ elastic_ca_cert }}"
+        url_username: elastic
+        url_password: "{{ elastic_password }}"
+        force_basic_auth: true
+      delegate_to: localhost
+      become: false
+      register: _es_health
+      # Waits: right after formation the cluster is briefly yellow while
+      # the system indices' replicas are allocated.
+      until: >-
+        _es_health.status == 200 and _es_health.json.status == 'green'
+        and _es_health.json.number_of_nodes == groups['elasticsearch'] | length
+      retries: 30
+      delay: 10
+      run_once: true
+
+    - name: Show the cluster's health
+      ansible.builtin.debug:
+        msg: >-
+          {{ _es_health.json.cluster_name }}: {{ _es_health.json.status }},
+          {{ _es_health.json.number_of_nodes }} nodes,
+          {{ _es_health.json.active_shards }} active shards
+      run_once: true

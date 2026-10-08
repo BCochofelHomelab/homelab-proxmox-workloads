@@ -1,0 +1,25 @@
+---
+# es_cluster_name, es_heap_size: group_vars/elasticsearch.yml.
+# elastic_version, es_http_port, es_transport_port: group_vars/all.yml.
+# elastic_password: group_vars/elastic.sops.yaml (docs/ANSIBLE.md).
+es_config_dir: /etc/elasticsearch
+es_certs_dir: "{{ es_config_dir }}/certs"
+es_data_dir: /var/lib/elasticsearch
+es_log_dir: /var/log/elasticsearch
+# Lock the heap in RAM (bootstrap.memory_lock + LimitMEMLOCK=infinity).
+es_memory_lock: true
+
+# Keystore entries the DEB's security auto-configuration creates at install
+# time. They point at its own generated certificates, which this role
+# replaces with the internal CA's, so they're removed.
+es_autoconfig_keystore_entries:
+  - autoconfiguration.password_hash
+  - xpack.security.http.ssl.keystore.secure_password
+  - xpack.security.transport.ssl.keystore.secure_password
+  - xpack.security.transport.ssl.truststore.secure_password
+es_autoconfig_cert_files: [http_ca.crt, http.p12, transport.p12]
+
+# Rolling restarts: how long to wait for a node to rejoin and for the
+# cluster to be green again (retries x delay seconds).
+es_health_retries: 60
+es_health_delay: 10

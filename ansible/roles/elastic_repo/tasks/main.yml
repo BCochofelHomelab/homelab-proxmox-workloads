@@ -1,0 +1,63 @@
+---
+# Adds Elastic's APT repository (elastic_apt_repo, group_vars/all.yml),
+# trusted only for packages signed by Elastic's key, verified by
+# fingerprint before it's installed.
+
+- name: Check whether Elastic's keyring is installed
+  ansible.builtin.stat:
+    path: "{{ elastic_repo_keyring }}"
+  register: _elastic_keyring
+
+- name: Install Elastic's signing key
+  when: not _elastic_keyring.stat.exists
+  become: true
+  block:
+    - name: Download Elastic's signing key
+      ansible.builtin.get_url:
+        url: "{{ elastic_repo_key_url }}"
+        dest: /tmp/elastic-signing-key.asc
+        mode: "0644"
+
+    - name: Read the downloaded key's fingerprint
+      ansible.builtin.shell: >-
+        set -o pipefail &&
+        gpg --show-keys --with-colons /tmp/elastic-signing-key.asc
+        | awk -F: '/^fpr:/ { print $10; exit }'
+      args:
+        executable: /bin/bash
+      register: _elastic_key_fpr
+      changed_when: false
+
+    - name: Fail on a fingerprint mismatch
+      ansible.builtin.assert:
+        that: _elastic_key_fpr.stdout == elastic_repo_key_fingerprint
+        fail_msg: "Elastic signing key fingerprint is {{ _elastic_key_fpr.stdout }}, expected {{ elastic_repo_key_fingerprint }}."
+        quiet: true
+
+    - name: Install the key as a dedicated keyring
+      ansible.builtin.command:
+        argv: [gpg, --dearmor, --yes, --output, "{{ elastic_repo_keyring }}", /tmp/elastic-signing-key.asc]
+      changed_when: true
+
+  always:
+    - name: Remove the downloaded key
+      ansible.builtin.file:
+        path: /tmp/elastic-signing-key.asc
+        state: absent
+
+- name: Add Elastic's APT repository
+  ansible.builtin.deb822_repository:
+    name: elastic
+    types: [deb]
+    uris: ["{{ elastic_apt_repo }}"]
+    suites: [stable]
+    components: [main]
+    signed_by: "{{ elastic_repo_keyring }}"
+  become: true
+  register: _elastic_repo
+
+- name: Update the APT cache after adding the repository
+  ansible.builtin.apt:
+    update_cache: true
+  become: true
+  when: _elastic_repo.changed

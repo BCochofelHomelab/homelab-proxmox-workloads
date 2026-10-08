@@ -53,6 +53,9 @@ secrets/
 *.pem
 *.cert
 *.crt
+# The internal Elastic CA's certificate is public and committed
+# (docs/ANSIBLE.md); its key is SOPS-encrypted (*.key.sops).
+!ansible/pki/elastic-ca.crt
 *.p12
 *.pfx
 .env

@@ -182,8 +182,39 @@ dir = "{{config_root}}"
 env = { SOPS_AGE_KEY_FILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
 run = "sops exec-env ~/.secrets/homelab.yaml 'terramate -C {{usage.path}} run --tags {{usage.tags}} -- tofu apply tfplan'"
 
+# The internal CA for the Elastic stack's TLS (docs/ANSIBLE.md). Run once:
+# it refuses to replace an existing CA. The key goes straight from openssl
+# into SOPS (encrypted to your key, .sops.yaml), never to disk in clear.
+[tasks."pki:init"]
+description = "Create the internal Elastic CA once: ansible/pki/elastic-ca.crt and elastic-ca.key.sops (encrypted to your key)"
+dir = "{{config_root}}"
+env = { SOPS_AGE_KEY_FILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
+shell = "bash -c"
+run = '''
+set -euo pipefail
+crt=ansible/pki/elastic-ca.crt
+key=ansible/pki/elastic-ca.key.sops
+if [ -e "$crt" ] || [ -e "$key" ]; then
+  echo "The CA already exists ($crt, $key): not replacing it." >&2
+  exit 1
+fi
+mkdir -p ansible/pki
+trap 'rm -f "$crt" "$key"' ERR
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 2>/dev/null \
+  | sops encrypt --filename-override "$key" > "$key"
+openssl req -x509 -new -key <(sops decrypt "$key") -sha256 -days 3650 \
+  -subj "/CN=Homelab Elastic CA" \
+  -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
+  -addext "keyUsage=critical,keyCertSign,cRLSign" \
+  -out "$crt"
+trap - ERR
+chmod 0644 "$crt" "$key"
+openssl x509 -in "$crt" -noout -subject -enddate -fingerprint -sha256
+echo "Commit $crt and $key."
+'''
+
 [tasks."ansible:site"]
-description = "Configure every host (playbooks/site.yml); decrypts the inventory secrets with your key. Extra args after --"
+description = "Configure every host (playbooks/site.yml); decrypts the inventory secrets and the CA key with your key. Extra args after --"
 dir = "{{config_root}}/ansible"
 env = { ANSIBLE_SOPS_AGE_KEYFILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
 raw = true
@@ -280,11 +311,12 @@ for repo in homelab-proxmox-core homelab-proxmox-workloads; do
 done
 exit $rc'"'" || rc=1
 
-echo "== ansible/inventory/group_vars/*.sops.yaml (your key)"
+echo "== ansible/inventory/group_vars/*.sops.yaml and the CA key (your key)"
 # Only that each file opens with your key. Add per-file checks of the
 # credentials inside (as homelab-proxmox-core does) once they exist.
 found=0
-for f in "{{config_root}}"/ansible/inventory/group_vars/*.sops.yaml; do
+for f in "{{config_root}}"/ansible/inventory/group_vars/*.sops.yaml \
+         "{{config_root}}"/ansible/pki/*.key.sops; do
   [ -e "$f" ] || continue
   found=1
   name=${f#"{{config_root}}/"}
@@ -315,10 +347,14 @@ if as_agent sops -d "$ro" >/dev/null 2>&1; then
   ok "ai-agent key opens homelab-ro.yaml"; else fail "ai-agent key can't open homelab-ro.yaml"; fi
 
 for f in "$HOME/.secrets/homelab.yaml" \
-         "{{config_root}}"/ansible/inventory/group_vars/*.sops.yaml; do
+         "{{config_root}}"/ansible/inventory/group_vars/*.sops.yaml \
+         "{{config_root}}"/ansible/pki/*.key.sops; do
   name=${f#"{{config_root}}/"}; name=${name#"$HOME/"}
-  # An unmatched glob stays literal: no inventory secrets yet.
-  case "$f" in *"/*.sops.yaml") ok "no inventory secrets present"; continue ;; esac
+  # An unmatched glob stays literal: none of those files yet.
+  case "$f" in
+    *"/*.sops.yaml") ok "no inventory secrets present"; continue ;;
+    *"/*.key.sops") ok "no CA key present"; continue ;;
+  esac
   if [ ! -e "$f" ]; then ok "$name not present"
   elif as_agent sops -d "$f" >/dev/null 2>&1; then fail "ai-agent key opens $name"
   else ok "ai-agent key refused by $name"; fi

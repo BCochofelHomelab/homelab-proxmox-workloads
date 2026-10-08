@@ -1,0 +1,122 @@
+---
+# Issues this host a certificate signed by the internal Elastic CA
+# (elastic_ca_cert / elastic_ca_key, group_vars/all.yml):
+#   1. the private key is generated on the host and never leaves it;
+#   2. its CSR is signed on the controller, with the CA key decrypted by
+#      SOPS for that task only (your age key: `mise run ansible:site`);
+#   3. the certificate and the CA certificate are copied back.
+# Idempotent: an existing certificate is kept while it matches the key and
+# SANs and doesn't expire within pki_renew_days. Sets pki_changed for the
+# calling role to decide whether its service needs a restart.
+
+- name: Check the CA certificate exists
+  ansible.builtin.stat:
+    path: "{{ elastic_ca_cert }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: _pki_ca
+
+- name: Fail if the internal CA hasn't been created
+  ansible.builtin.assert:
+    that: _pki_ca.stat.exists
+    fail_msg: "{{ elastic_ca_cert }} is missing: create the internal CA once with `mise run pki:init` (docs/ANSIBLE.md)."
+    quiet: true
+  run_once: true
+
+- name: Create {{ pki_cert_dir }}
+  ansible.builtin.file:
+    path: "{{ pki_cert_dir }}"
+    state: directory
+    owner: root
+    group: "{{ pki_group }}"
+    mode: "0750"
+  become: true
+
+- name: Generate the private key on the host
+  community.crypto.openssl_privatekey:
+    path: "{{ pki_cert_dir }}/{{ pki_name }}.key"
+    type: RSA
+    size: 2048
+    # PKCS#8: required by Logstash, accepted by everything else.
+    format: pkcs8
+    format_mismatch: convert
+    owner: "{{ pki_owner }}"
+    group: "{{ pki_group }}"
+    mode: "{{ pki_key_mode }}"
+  become: true
+  register: _pki_key
+
+- name: Create the certificate signing request
+  community.crypto.openssl_csr_pipe:
+    privatekey_path: "{{ pki_cert_dir }}/{{ pki_name }}.key"
+    common_name: "{{ pki_common_name }}"
+    subject_alt_name: "{{ (pki_dns_sans | map('regex_replace', '^', 'DNS:') | list) + (pki_ip_sans | map('regex_replace', '^', 'IP:') | list) }}"
+    key_usage: [digitalSignature, keyEncipherment]
+    key_usage_critical: true
+    extended_key_usage: "{{ pki_extended_key_usage }}"
+  become: true
+  register: _pki_csr
+  changed_when: false
+
+- name: Check the existing certificate
+  ansible.builtin.stat:
+    path: "{{ pki_cert_dir }}/{{ pki_name }}.crt"
+  become: true
+  register: _pki_cert_stat
+
+- name: Read the existing certificate
+  ansible.builtin.slurp:
+    src: "{{ pki_cert_dir }}/{{ pki_name }}.crt"
+  become: true
+  register: _pki_cert_current
+  when: _pki_cert_stat.stat.exists
+
+- name: Check the existing certificate's expiry
+  community.crypto.x509_certificate_info:
+    content: "{{ _pki_cert_current.content | b64decode }}"
+    valid_at:
+      renew: "+{{ pki_renew_days }}d"
+  delegate_to: localhost
+  become: false
+  register: _pki_cert_info
+  when: _pki_cert_stat.stat.exists
+
+- name: Sign the CSR with the internal CA (on the controller)
+  community.crypto.x509_certificate_pipe:
+    provider: ownca
+    csr_content: "{{ _pki_csr.csr }}"
+    content: "{{ (_pki_cert_current.content | b64decode) if _pki_cert_stat.stat.exists else omit }}"
+    force: "{{ _pki_cert_stat.stat.exists and not _pki_cert_info.valid_at.renew }}"
+    ownca_path: "{{ elastic_ca_cert }}"
+    ownca_privatekey_content: "{{ lookup('community.sops.sops', elastic_ca_key, input_type='binary', output_type='binary') }}"
+    ownca_not_after: "+{{ pki_valid_days }}d"
+    ownca_digest: sha256
+  delegate_to: localhost
+  become: false
+  no_log: true
+  register: _pki_cert
+
+- name: Install the certificate
+  ansible.builtin.copy:
+    content: "{{ _pki_cert.certificate }}"
+    dest: "{{ pki_cert_dir }}/{{ pki_name }}.crt"
+    owner: root
+    group: "{{ pki_group }}"
+    mode: "0644"
+  become: true
+  register: _pki_cert_file
+
+- name: Install the CA certificate
+  ansible.builtin.copy:
+    src: "{{ elastic_ca_cert }}"
+    dest: "{{ pki_cert_dir }}/ca.crt"
+    owner: root
+    group: "{{ pki_group }}"
+    mode: "0644"
+  become: true
+  register: _pki_ca_file
+
+- name: Record whether the key or certificates changed
+  ansible.builtin.set_fact:
+    pki_changed: "{{ _pki_key.changed or _pki_cert_file.changed or _pki_ca_file.changed }}"

@@ -1,0 +1,15 @@
+---
+# pki_cert_dir: required — where <pki_name>.key, <pki_name>.crt and ca.crt go.
+pki_name: node
+pki_owner: root
+pki_group: root
+# The key is readable by the service's group (pki_group) only.
+pki_key_mode: "0640"
+pki_common_name: "{{ inventory_hostname }}.{{ homelab_domain }}"
+pki_dns_sans: ["{{ inventory_hostname }}", "{{ inventory_hostname }}.{{ homelab_domain }}", localhost]
+pki_ip_sans: ["{{ ansible_host }}", 127.0.0.1]
+# Server and client auth: Elasticsearch's transport layer uses both.
+pki_extended_key_usage: [serverAuth, clientAuth]
+pki_valid_days: 730
+# Re-issue when the certificate expires within this many days.
+pki_renew_days: 30
