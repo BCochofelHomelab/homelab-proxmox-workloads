@@ -28,7 +28,7 @@ data "sops_file" "agent_client_key" {
   input_type  = "raw"
 }
 
-# -- Integration packages (versions compatible with Kibana 9.5.4) -------------
+# -- Integration packages (versions compatible with elastic_version) ----------
 
 resource "elasticstack_fleet_integration" "fleet_server" {
   name         = "fleet_server"

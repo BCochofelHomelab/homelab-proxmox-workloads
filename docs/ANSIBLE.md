@@ -271,7 +271,7 @@ APM UI.
   parameter (one reboot, the first time) and keeps the VM's own interfaces
   IPv4-only with `sysctl` (`/etc/sysctl.d/60-ipv6-host-off.conf`);
   containers have their own network namespaces.
-- **Version:** a checkout of the release tag (`otel_demo_version`, 3.1.0)
+- **Version:** a checkout of the release tag (`otel_demo_version`)
   in `/opt/otel-demo`, and that release's images (`DEMO_VERSION`, instead
   of upstream's `latest`). Images are pulled, never built.
 - **Services:** upstream's core services only (`compose.yaml`, what `make

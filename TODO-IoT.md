@@ -22,18 +22,19 @@ Related work lives elsewhere:
 
 | Source | Where | Supported Elastic route | Verdict |
 | --- | --- | --- | --- |
-| QNAP TS-230 | NAS | `qnap_nas` 1.26.0 (GA), syslog over TCP/UDP to an agent | Yes, supported |
-| CoreDNS `ns1` | `server01`, macvlan `192.168.68.2` | `coredns` 0.10.0 (beta, logs) + `prometheus` 1.24.4 for `:9153` | Yes |
+| QNAP TS-230 | NAS | `qnap_nas` (GA), syslog over TCP/UDP to an agent | Yes, supported |
+| CoreDNS `ns1` | `server01`, macvlan `192.168.68.2` | `coredns` (beta, logs) + `prometheus` for `:9153` | Yes |
 | CoreDNS `ns2` | QNAP Container Station, `.3` | Prometheus scrape of `:9153`; logs have no route yet | Metrics only |
 | Home Assistant | HAOS on a Raspberry Pi 3, `192.168.68.11` | `prometheus` (HA's `/api/prometheus`), or the community `homeassistant-elasticsearch` component | Yes, metrics/states. **No logs** (HAOS has no remote syslog) |
 | TP-Link Deco | mesh Wi-Fi | No Elastic package; most Deco firmware has no remote syslog. Via HA's community `tplink_deco` component | Through HA only |
 | Pi-hole `.5` / `.6` | `server01` / QNAP | No Elastic package | Custom only; candidate to skip |
 | Caddy | `proxy` | No Elastic package; Caddy metrics via `prometheus` | Optional, see Step 7 |
-| SNMP devices (QNAP, others) | LAN | No Elastic package. EDOT Collector `snmpreceiver` (Extended, EDOT 9.3+) or Logstash's bundled `snmp`/`snmptrap` inputs | Yes, see Step 8 |
+| SNMP devices (QNAP, others) | LAN | No Elastic package. EDOT Collector `snmpreceiver` (Extended component) or Logstash's bundled `snmp`/`snmptrap` inputs | Yes, see Step 8 |
 | Proxmox `pve1` | host | `system` (already in place). The [Proxmox blog post](https://www.elastic.co/observability-labs/blog/monitoring-proxmox-ve-with-elastic) uses just one agent on the host plus Universal Profiling; it uses no Proxmox API or syslog input | Nothing new to add |
 
-Package versions are checked against Kibana 9.5.4 in the Elastic package
-registry (`epr.elastic.co`) on 2026-10-08.
+Package availability was checked against the stack's version
+(`elastic_version`) in the Elastic package registry (`epr.elastic.co`) on
+2026-10-08.
 
 ## Step 0 — Decisions before building
 
@@ -81,8 +82,7 @@ listeners, on different ports:
 - [ ] Firewall: the VMs run no host firewall, so nothing to open there.
       Check Proxmox's firewall isn't enabled for the ingest VM; if it is,
       or one is added later, allow both ports from `192.168.68.0/22` only.
-- [ ] Alternative for the catch-all: the `syslog_router` package (1.0.1,
-      GA) on the agent instead of Logstash. It routes one syslog listener
+- [ ] Alternative for the catch-all: the `syslog_router` package (GA) on the agent instead of Logstash. It routes one syslog listener
       to several integrations by matching the message. Worth it only if
       more integration-backed devices appear later.
 - [ ] Healthcheck (`99-healthcheck.yml`): `logger -n 192.168.68.34 -P 5514`
@@ -101,7 +101,7 @@ listeners, on different ports:
 ## Step 3 — Home Assistant (Raspberry Pi 3)
 
 HAOS supports a Pi 3 only with the **64-bit image** (`rpi3-64`). 32-bit
-images lost support in 2025.12
+images are no longer supported
 ([HA blog](https://home-assistant.io/blog/2025/05/22/deprecating-core-and-supervised-installation-methods-and-32-bit-systems/)).
 
 - [ ] Check **Settings → System → Repairs/About** shows `aarch64`. If it
@@ -115,7 +115,7 @@ images lost support in 2025.12
 - [ ] Create a long-lived access token for a dedicated HA user
       (`elastic-scraper`), store it in core's SOPS file, write it
       root-only on `proxy` (e.g. `/etc/elastic-agent/ha-token`).
-- [ ] `prometheus` 1.24.4 integration on `proxy`'s policy: host
+- [ ] `prometheus` integration on `proxy`'s policy: host
       `192.168.68.11:8123` (or `ha.homelab.bcochofel.com` through Caddy),
       path `/api/prometheus`, `bearer_token_file`, 60s period.
 - [ ] Limit: Prometheus exports numeric **states**; most **attributes**
@@ -127,8 +127,8 @@ images lost support in 2025.12
 installed through HACS. It writes states and attributes into
 `metrics-homeassistant.*` TSDS data streams through the Bulk API.
 
-- Needs Elasticsearch 8.14+ (fine with 9.5.4; check its release notes
-  name 9.x before installing).
+- Needs a minimum Elasticsearch version: check its release notes against
+  `elastic_version` before installing.
 - HA talks **straight to Elasticsearch** (`:9200`), bypassing Logstash.
   This breaks the "all data through Logstash" pattern and needs the
   internal CA (`ansible/pki/elastic-ca.crt`) copied into HA's `/config`.
@@ -171,7 +171,7 @@ syslog, so HA is the bridge.
       Corefile already has `prometheus :9153` in the catch-all block
       (core's `roles/coredns/templates/Corefile.j2`). Check the QNAP
       container publishes `9153`.
-- [ ] Logs (`ns1`): `coredns` 0.10.0 (beta) on `server01`'s policy,
+- [ ] Logs (`ns1`): `coredns` (beta) on `server01`'s policy,
       filestream input with the agent's docker provider so
       `${kubernetes.container.id}`-style paths resolve to the CoreDNS
       container. Or keep the `docker` integration already on
@@ -205,13 +205,13 @@ You leaned toward skipping this. Options, if it comes back:
 
 Elastic has no SNMP integration package. Two routes, both on the ingest VM:
 
-- **EDOT Collector `snmpreceiver`**: in EDOT since 9.3.0 as an
-  *Extended* component (shipped, but outside Elastic's core support
-  tier). The gateway (`roles/edot_gateway`, 9.5.4) already runs on
+- **EDOT Collector `snmpreceiver`**: shipped in EDOT as an
+  *Extended* component (outside Elastic's core support tier). The
+  gateway (`roles/edot_gateway`, at `elastic_version`) already runs on
   ingest and writes to Elasticsearch, so this is a config change. Output
   is real metrics (`metrics-*` data streams). No MIB loading: each metric
   is declared by OID in `otel.yml.j2`. Polling only, no traps.
-- **Logstash `snmp` input** (bundled since 8.15 in
+- **Logstash `snmp` input** (bundled with Logstash in
   `logstash-integration-snmp`): `get`/`walk`/`tables`, ships the IETF
   MIBs (IF-MIB, HOST-RESOURCES-MIB) and loads vendor MIBs via
   `mib_paths`. Events are documents, not TSDS metrics. Its sibling

@@ -62,7 +62,7 @@ Fleet Server (kibana:8220) ─────────────> Elasticsearc
 | Agent policy `fleet-server-policy` | `fleet_server` and `system` integrations; Ansible enrolls the kibana VM's agent into it as Fleet Server |
 | Agent policies `elasticsearch-nodes`, `logstash`, `homelab-vms`, `homelab-core`, `proxmox` | One per role (`for_each`), each with the `system` integration; Ansible enrolls each host into its role's policy. Role-specific integrations go here (stack monitoring; Docker on `homelab-core`). `homelab-core` (core's VMs) and `proxmox` (the pve1 host) are enrolled from `homelab-proxmox-core` |
 | Stack monitoring (`monitoring.tf`) | `elasticsearch` on `elasticsearch-nodes` (each node: `https://localhost:9200`, scope `node`), `kibana` on `fleet-server-policy` (`https://192.168.68.33:5601`), `logstash` on `logstash` (`http://localhost:9600`, the stack-monitoring streams enabled): metrics and logs, TLS verified against the CA, as `remote_monitoring_user`, its password read from `ansible/inventory/group_vars/all.sops.yaml` through the `sops` provider. Not Elasticsearch's legacy self-collection |
-| Packages | `fleet_server` 1.6.1, `system` 3.0.0, `elasticsearch` 1.23.3, `kibana` 2.9.0, `logstash` 2.11.3, `docker` 2.15.3 (compatible with Kibana 9.5.4), kept on destroy |
+| Packages | `fleet_server`, `system`, `docker` (`main.tf`) and `elasticsearch`, `kibana`, `logstash` (`monitoring.tf`), each pinned to a version compatible with the stack's (`elastic_version`); kept on destroy |
 
 **Order.** Fleet Server only works with an Elasticsearch output, and the
 Basic licence has no per-policy outputs (Platinum). Fleet refuses to add
@@ -148,10 +148,12 @@ then `terramate generate`, and create its HCP workspace (below).
   `tofu validate` and the linters. Don't keep a
   `~/.terraform.d/credentials.tfrc.json`: it's an ambient read-write
   credential.
-- **Providers:** `bpg/proxmox` (`~> 0.116.0`) and `hashicorp/local`,
-  recorded per stack in `.terraform.lock.hcl` as `registry.opentofu.org`
-  entries. Bump with `tofu init -upgrade` in each stack. Core is on
-  `0.111.x`; the two repos don't share state, so they can differ.
+- **Providers:** `bpg/proxmox` and `hashicorp/local` (`infra` stacks),
+  `elastic/elasticstack` (`config` stacks), constrained in
+  `stacks/infra.tm.hcl` and `stacks/config.tm.hcl` and recorded per stack
+  in `.terraform.lock.hcl` as `registry.opentofu.org` entries. Bump with
+  `tofu init -upgrade` in each stack. Core pins its own; the two repos
+  don't share state, so they can differ.
 - **pre-commit uses `tofu`**: `--hook-config=--tf-path=tofu` on the
   Terraform hooks, so commits from a shell without `mise activate` don't
   fall back to `terraform` and rewrite the lock files.
@@ -236,7 +238,7 @@ checks for `bpg/proxmox`, so Proxmox-specific checks are custom, under
   (`checkov.yaml`).
 - `policies/trivy/proxmox_*.rego`: the same intent as Trivy Rego checks,
   plus no hardcoded `api_token` and no `insecure = true`. They haven't
-  been shown to fire with Trivy 0.72.0 (see core's
+  been shown to fire with the pinned Trivy (see core's
   [`TERRAFORM.md`](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/TERRAFORM.md#security-checks-and-policy-enforcement));
   Checkov is the enforcing gate.
 

@@ -5,8 +5,9 @@
 
 # Elastic Stack version, for every DEB package (Elasticsearch, Kibana,
 # Logstash). Keep it at or above elastic_agent_version in the Packer
-# template (packer/ubuntu-26.04, 9.5.4): an agent must not be newer than
-# the stack it enrolls into. Bump it here and roll out with the playbooks.
+# template (packer/ubuntu-26.04/variables.pkr.hcl): an agent must not be
+# newer than the stack it enrolls into. Bump it here and roll out with
+# the playbooks.
 elastic_version: "9.5.4"
 # Elastic's APT repository for that major version.
 elastic_apt_repo: "https://artifacts.elastic.co/packages/{{ elastic_version.split('.')[0] }}.x/apt"
