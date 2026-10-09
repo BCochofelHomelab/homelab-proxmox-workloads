@@ -1,9 +1,11 @@
 # homelab-proxmox-workloads
 
-The workloads of the homelab, on Proxmox: an Elastic Stack 9.5.4
+The workloads of the homelab, on Proxmox: an Elastic Stack
 observability platform (three Elasticsearch nodes, Kibana with Fleet
 Server, Logstash and an EDOT Collector gateway) and the OpenTelemetry Demo
-as its first instrumented application. Built with the same IaC pipeline as
+as its first instrumented application. Versions are pinned in code, not
+here: `elastic_version` in `ansible/inventory/group_vars/all.yml` for the
+stack, and each role's defaults for the rest. Built with the same IaC pipeline as
 core, split into Terramate stacks:
 
 ```text
