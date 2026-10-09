@@ -23,15 +23,17 @@ The step numbers are core's. Other docs here refer to them the same way
 | 1 | Proxmox roles, users and API tokens: `packer`, `terraform`, `ai-agent` | [Proxmox: roles, users, tokens](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#1-proxmox-roles-users-tokens) |
 | 2 | HCP Terraform: your user token (`TF_TOKEN_app_terraform_io`), and no token for the AI agent | [HCP Terraform: workspace and tokens](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#2-hcp-terraform-workspace-and-tokens) |
 | 4 | Age keys: yours (`~/.config/sops/age/bcochofel.txt`) and the AI agent's (`ai-agent.txt`), none at SOPS's default path | [Age keys](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#4-age-keys) |
-| 5 | `~/.secrets/homelab.yaml` (read-write, your key only) and `~/.secrets/homelab-ro.yaml` (read-only, also the `ai-agent` key) | [Secret files](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#5-secret-files) |
+| 5 | `~/.secrets/homelab.yaml` (read-write, your key only), `~/.secrets/homelab-ro.yaml` (read-only, also the `ai-agent` key) and `~/.secrets/ai-agent-git.yaml` (the machine user's token, also the `ai-agent` key) | [Secret files](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#5-secret-files) |
 | 6 | The AI agent uses only the `ai-agent` key (`.claude/settings.json`) | [The AI agent uses only the `ai-agent` key](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#6-the-ai-agent-uses-only-the-ai-agent-key) |
 | 7 | Verify the credentials and the boundary | [Verify the credentials and the boundary](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#7-verify-the-credentials-and-the-boundary) |
 | 8 | MCP servers for the AI agent (Proxmox, GitHub, Terraform), `.mcp.json`. The Elasticsearch one is this repo's ([below](#elasticsearch-mcp-ai-agent)) | [MCP servers for the AI agent](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#8-mcp-servers-for-the-ai-agent) |
-| 9 | The devcontainer (here: [`DEVCONTAINER.md`](DEVCONTAINER.md)) | [The devcontainer](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#9-the-devcontainer) |
+| 9 | The AI agent's GitHub identity: the machine user `bcochofel-ai-agent` and its token, for both repos (organization side: [`GITHUB.md`](GITHUB.md)) | [The AI agent's GitHub identity](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#9-the-ai-agents-github-identity) |
+| 10 | The devcontainer (here: [`DEVCONTAINER.md`](DEVCONTAINER.md)) | [The devcontainer](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/CREDENTIALS.md#10-the-devcontainer) |
 
 If core is already set up on this machine, there's nothing to redo for
-these: the same files and keys work from this repo, and the GitHub PAT in
-`homelab-ro.yaml` already covers both repos.
+these: the same files and keys work from this repo. Both GitHub tokens
+already cover both repos: the read-only one in `homelab-ro.yaml` (the
+GitHub MCP server) and the machine user's in `ai-agent-git.yaml`.
 
 ## Specific to this repo
 
@@ -197,8 +199,8 @@ The same tasks as in core, run from this repo:
 
 | Task | Checks |
 | --- | --- |
-| `mise run secrets:check` | Both `~/.secrets` files open with the right key, and only with it. |
-| `mise run creds:check` | Every credential authenticates. Here: the Proxmox tokens, the HCP token (every workspace above), the GitHub PAT, and that each `group_vars/*.sops.yaml` and the CA key open with your key. |
-| `mise run boundary:check` | The `ai-agent` key opens `homelab-ro.yaml` and nothing else, including every `group_vars/*.sops.yaml` and the CA key here. Run it on WSL and in the devcontainer. |
+| `mise run secrets:check` | Every `~/.secrets` file opens with the right key, and only with it. |
+| `mise run creds:check` | Every credential authenticates. Here: the Proxmox tokens, the HCP token (every workspace above), the read-only GitHub token, the machine user's token (push but not admin on both repos), and that each `group_vars/*.sops.yaml` and the CA key open with your key. |
+| `mise run boundary:check` | The `ai-agent` key opens `homelab-ro.yaml` and nothing else, including every `group_vars/*.sops.yaml` and the CA key here; `.git/config` runs no code; CODEOWNERS never names the machine user. Run it on WSL and in the devcontainer, where it also proves git and `gh` act as `bcochofel-ai-agent` ([`DEVCONTAINER.md`](DEVCONTAINER.md#prove-the-boundary)). |
 
 All three print `ok`/`FAIL`, never a value.
