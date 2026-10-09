@@ -10,14 +10,14 @@
         <mxCell id="control" value="You (WSL) &amp;#183; mise" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fillColor=#f8fafc;strokeColor=#94a3b8;fontColor=#334155;fontSize=15;fontStyle=1;arcSize=4;" vertex="1" parent="1">
           <mxGeometry x="40" y="50" width="440" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="tofu" value="&lt;b&gt;OpenTofu + Terramate&lt;/b&gt;&lt;br&gt;infra stacks: VMs &amp;#183; config stacks: ILM, Fleet&lt;br&gt;state in HCP Terraform" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#64748b;fontColor=#1e293b;fontSize=13;arcSize=10;" vertex="1" parent="1">
-          <mxGeometry x="60" y="82" width="400" height="52" as="geometry" />
+        <mxCell id="tofu" value="&lt;b&gt;OpenTofu + Terramate&lt;/b&gt;&lt;br&gt;infra stacks: VMs&lt;br&gt;config stacks: ILM, Fleet&lt;br&gt;state in HCP Terraform" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#64748b;fontColor=#1e293b;fontSize=13;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="84" width="230" height="96" as="geometry" />
         </mxCell>
-        <mxCell id="ansible" value="&lt;b&gt;Ansible&lt;/b&gt; (SSH) &amp;#183; secrets with SOPS + age" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#64748b;fontColor=#1e293b;fontSize=13;arcSize=10;" vertex="1" parent="1">
-          <mxGeometry x="60" y="144" width="400" height="40" as="geometry" />
+        <mxCell id="ansible" value="&lt;b&gt;Ansible&lt;/b&gt;&lt;br&gt;over SSH&lt;br&gt;secrets: SOPS + age" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#64748b;fontColor=#1e293b;fontSize=13;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="300" y="84" width="160" height="96" as="geometry" />
         </mxCell>
         <mxCell id="clients" value="LAN clients&lt;br&gt;(browser)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f1f5f9;strokeColor=#475569;fontColor=#334155;fontSize=14;" vertex="1" parent="1">
-          <mxGeometry x="560" y="60" width="180" height="70" as="geometry" />
+          <mxGeometry x="560" y="89" width="180" height="70" as="geometry" />
         </mxCell>
         <mxCell id="core" value="homelab-proxmox-core (other repo)" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fillColor=#f8fafc;strokeColor=#94a3b8;dashed=1;fontColor=#334155;fontSize=15;fontStyle=1;arcSize=4;" vertex="1" parent="1">
           <mxGeometry x="820" y="50" width="540" height="190" as="geometry" />
@@ -118,12 +118,11 @@
         <mxCell id="lgt4" value="management: OpenTofu (Proxmox API, Elasticsearch/Kibana APIs), Ansible (SSH)" style="text;html=1;align=left;verticalAlign=middle;fontSize=12.5;fontColor=#334155;" vertex="1" parent="1">
           <mxGeometry x="150" y="790" width="760" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="e_clients_proxy" value="https" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7c3aed;strokeWidth=2;endArrow=block;fontSize=12;fontColor=#334155;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="clients" target="proxy">
+        <mxCell id="e_clients_proxy" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7c3aed;strokeWidth=2;endArrow=block;fontSize=12;fontColor=#334155;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="clients" target="proxy">
           <mxGeometry relative="1" as="geometry">
-            <Array as="points"><mxPoint x="790" y="95" /><mxPoint x="790" y="124" /></Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e_proxy_kb" value="https :5601&lt;br&gt;CA-verified" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7c3aed;strokeWidth=2;endArrow=block;fontSize=12;fontColor=#334155;labelBackgroundColor=#ffffff;exitX=0.4583;exitY=1;entryX=1;entryY=0.25;" edge="1" parent="1" source="proxy" target="kb">
+        <mxCell id="e_proxy_kb" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7c3aed;strokeWidth=2;endArrow=block;fontSize=12;fontColor=#334155;labelBackgroundColor=#ffffff;exitX=0.4583;exitY=1;entryX=1;entryY=0.25;" edge="1" parent="1" source="proxy" target="kb">
           <mxGeometry relative="1" as="geometry">
             <Array as="points"><mxPoint x="950" y="385" /></Array>
           </mxGeometry>
@@ -133,21 +132,21 @@
             <Array as="points"><mxPoint x="950" y="625" /><mxPoint x="950" y="413" /></Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e_core_ls" value=":5044" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#d97706;strokeWidth=2;endArrow=block;fontSize=12;fontColor=#334155;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.6818;entryY=0;" edge="1" parent="1" source="coreagents" target="logstash">
+        <mxCell id="e_core_ls" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#d97706;strokeWidth=2;endArrow=block;fontSize=12;fontColor=#334155;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.6818;entryY=0;" edge="1" parent="1" source="coreagents" target="logstash">
           <mxGeometry relative="1" as="geometry">
           </mxGeometry>
         </mxCell>
-        <mxCell id="e_ls_es" value="logstash_writer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563eb;strokeWidth=2;endArrow=block;fontSize=12;fontColor=#334155;labelBackgroundColor=#ffffff;exitX=0.25;exitY=0;entryX=0.5;entryY=0;" edge="1" parent="1" source="logstash" target="es3">
+        <mxCell id="e_ls_es" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563eb;strokeWidth=2;endArrow=block;fontSize=12;fontColor=#334155;labelBackgroundColor=#ffffff;exitX=0.25;exitY=0;entryX=0.5;entryY=0;" edge="1" parent="1" source="logstash" target="es3">
           <mxGeometry relative="1" as="geometry">
             <Array as="points"><mxPoint x="1077" y="312" /><mxPoint x="445" y="312" /></Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e_edot_es" value="edot_writer, OTel-native" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563eb;strokeWidth=2;endArrow=block;fontSize=12;fontColor=#334155;labelBackgroundColor=#ffffff;exitX=0;exitY=0.75;entryX=0.5;entryY=1;" edge="1" parent="1" source="edot" target="escluster">
+        <mxCell id="e_edot_es" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563eb;strokeWidth=2;endArrow=block;fontSize=12;fontColor=#334155;labelBackgroundColor=#ffffff;exitX=0;exitY=0.75;entryX=0.5;entryY=1;" edge="1" parent="1" source="edot" target="escluster">
           <mxGeometry relative="1" as="geometry">
             <Array as="points"><mxPoint x="960" y="549" /><mxPoint x="960" y="570" /><mxPoint x="295" y="570" /></Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e_demo_edot" value="OTLP :4317" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#059669;strokeWidth=2;endArrow=block;fontSize=12;fontColor=#334155;labelBackgroundColor=#ffffff;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="demoapp" target="edot">
+        <mxCell id="e_demo_edot" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#059669;strokeWidth=2;endArrow=block;fontSize=12;fontColor=#334155;labelBackgroundColor=#ffffff;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="demoapp" target="edot">
           <mxGeometry relative="1" as="geometry">
           </mxGeometry>
         </mxCell>
@@ -159,11 +158,11 @@
           <mxGeometry relative="1" as="geometry">
           </mxGeometry>
         </mxCell>
-        <mxCell id="e_tofu_pve" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#334155;strokeWidth=1.5;dashed=1;dashPattern=6 4;endArrow=block;fontSize=12;fontColor=#334155;labelBackgroundColor=#ffffff;exitX=0.15;exitY=1;entryX=0.0606;entryY=0;" edge="1" parent="1" source="tofu" target="pve">
+        <mxCell id="e_tofu_pve" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#334155;strokeWidth=1.5;dashed=1;dashPattern=6 4;endArrow=block;fontSize=12;fontColor=#334155;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.1023;entryY=0;" edge="1" parent="1" source="tofu" target="pve">
           <mxGeometry relative="1" as="geometry">
           </mxGeometry>
         </mxCell>
-        <mxCell id="e_ansible_pve" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#334155;strokeWidth=1.5;dashed=1;dashPattern=6 4;endArrow=block;fontSize=12;fontColor=#334155;labelBackgroundColor=#ffffff;exitX=0.75;exitY=1;entryX=0.2424;entryY=0;" edge="1" parent="1" source="ansible" target="pve">
+        <mxCell id="e_ansible_pve" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#334155;strokeWidth=1.5;dashed=1;dashPattern=6 4;endArrow=block;fontSize=12;fontColor=#334155;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.2576;entryY=0;" edge="1" parent="1" source="ansible" target="pve">
           <mxGeometry relative="1" as="geometry">
           </mxGeometry>
         </mxCell>
