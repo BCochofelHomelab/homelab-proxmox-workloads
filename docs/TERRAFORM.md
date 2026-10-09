@@ -238,7 +238,7 @@ checks for `bpg/proxmox`, so Proxmox-specific checks are custom, under
   (`checkov.yaml`).
 - `policies/trivy/proxmox_*.rego`: the same intent as Trivy Rego checks,
   plus no hardcoded `api_token` and no `insecure = true`. They haven't
-  been shown to fire with Trivy 0.72.0 (see core's
+  been shown to fire with the pinned Trivy (see core's
   [`TERRAFORM.md`](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/TERRAFORM.md#security-checks-and-policy-enforcement));
   Checkov is the enforcing gate.
 
