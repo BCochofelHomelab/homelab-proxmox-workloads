@@ -59,7 +59,7 @@ the same rules apply here:
 | Dry-run before any change | Every stack is planned (`mise run tofu:plan`) and reviewed before `mise run tofu:apply`; both stay human steps. |
 | Boundaries enforced by construction | The devcontainer holds only the read-only credentials ([`docs/DEVCONTAINER.md`](docs/DEVCONTAINER.md)); `mise run boundary:check` proves it. |
 
-The roadmap is [`TODO-SRE-AI.md`](TODO-SRE-AI.md); home-network and IoT
+The roadmap, one for both repos, is core's [`docs/SRE-AI.md`](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/SRE-AI.md); home-network and IoT
 telemetry still to come is [`TODO-IoT.md`](TODO-IoT.md).
 
 ## Quickstart
@@ -282,8 +282,8 @@ All in `192.168.68.0/22`. `.30`–`.39` is reserved for this repo.
   where it's pinned and how to bump it.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — environment setup, branching,
   commit conventions and versioning.
-- [`TODO-SRE-AI.md`](TODO-SRE-AI.md) — the homelab-wide SRE AI-autonomy
-  roadmap.
+- [`docs/SRE-AI.md`](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/SRE-AI.md) (in core) — the homelab-wide SRE AI-autonomy
+  roadmap and where it stands, with checkboxes, for both repos.
 - [`TODO-IoT.md`](TODO-IoT.md) — home-network and IoT telemetry.
 
 ## References

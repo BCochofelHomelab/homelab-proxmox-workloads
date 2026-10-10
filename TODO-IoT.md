@@ -13,9 +13,9 @@ package.
 Related work lives elsewhere:
 
 - WSL terminal and AI agent command logs into Elastic:
-  [`TODO-SRE-AI.md`](TODO-SRE-AI.md) A2 ("Command audit trail").
+  [`docs/SRE-AI.md`](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/SRE-AI.md#a2-command-audit-trail) A2 ("Command audit trail").
 - Fleet agents on core's `proxy`/`server01`, CoreDNS and Caddy metrics:
-  [`TODO-SRE-AI.md`](TODO-SRE-AI.md) A9 ("Telemetry coverage"). The
+  [`docs/SRE-AI.md`](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/SRE-AI.md#a9-telemetry-coverage) A9 ("Telemetry coverage"). The
   CoreDNS and Caddy steps below cover the same items.
 
 ## What's possible, per source
@@ -95,7 +95,7 @@ listeners, on different ports:
 - [ ] Confirm the `qnap_nas` dashboards fill in Kibana.
 - [ ] Container Station containers (CoreDNS `ns2`, Pi-hole `.6`) don't
       log through QuLog. Their logs stay out of scope unless an agent runs
-      on the NAS (TODO-SRE-AI A9 tracks that decision).
+      on the NAS (core's `docs/SRE-AI.md` A9 tracks that decision).
 - [ ] Disk, volume, fan and temperature health: SNMP, Step 8.
 
 ## Step 3 — Home Assistant (Raspberry Pi 3)
@@ -191,7 +191,7 @@ You leaned toward skipping this. Options, if it comes back:
 - [ ] Metrics: a community Prometheus exporter sidecar (Pi-hole v6 API),
       scraped by the `prometheus` integration.
 - [ ] Cheapest useful signal: Phase B's DNS SLO probes
-      (`TODO-SRE-AI.md`) against `.5`/`.6` from Synthetics or Heartbeat,
+      (core's `docs/SRE-AI.md`) against `.5`/`.6` from Synthetics or Heartbeat,
       no Pi-hole-side changes at all.
 
 ## Step 7 — Caddy (optional, same scrape pattern)
