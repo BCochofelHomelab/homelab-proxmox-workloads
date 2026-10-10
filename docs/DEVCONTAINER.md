@@ -191,7 +191,7 @@ GitHub ([`GITHUB.md`](GITHUB.md)).
   `GIT_CONFIG_*` variables, which take precedence over every config file:
   commits are authored by `bcochofel-ai-agent`, and an SSH remote is
   rewritten to HTTPS: it never pushes with an SSH key
-  ([`GITHUB.md`](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/GITHUB.md#why-https-never-ssh)).
+  ([`SETUP.md`](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/SETUP.md#what-github-enforces-and-what-it-doesnt)).
 - **Credentials:** an empty `credential.helper` drops VS Code's forwarding
   helper, and `.devcontainer/bin/git-credential-ai-agent` is the only one
   left: it decrypts the agent's token for github.com, per request, and
