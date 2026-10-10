@@ -2,10 +2,10 @@
 
 The `BCochofelHomelab` organization and both of its repositories are set
 up and documented in one place, core's
-[`docs/GITHUB.md`](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/GITHUB.md): the organization settings,
+[`docs/SETUP.md`](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/SETUP.md#stage-2-github-organization), stage 2: the organization settings,
 the `sre-team` and `sre-lead` teams, the per-repository rulesets, the AI
 agent's machine user and its token, the GitHub CLI, and the
-[red button](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/GITHUB.md#red-button-stopping-the-ai-agent)
+[red button](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/SETUP.md#red-button)
 that stops the AI agent. A change to any of them is recorded there.
 
 This repository follows it exactly:
