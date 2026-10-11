@@ -202,8 +202,8 @@ A second run should report `changed=0`. See
 
 To bring core's VMs and the Proxmox host in, enroll them from core
 ([its `docs/ANSIBLE.md`](https://github.com/BCochofelHomelab/homelab-proxmox-core/blob/main/docs/ANSIBLE.md#elastic-agent)),
-with the enrollment tokens of the **Homelab core** and **Proxmox**
-policies.
+with the enrollment tokens of the **Homelab core**, **Proxmox** and
+**GitHub runner** policies.
 
 ## Verify
 

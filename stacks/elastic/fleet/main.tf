@@ -160,6 +160,12 @@ locals {
       name        = "Proxmox"
       description = "The Proxmox VE host (pve1): host metrics, processes (each VM's kvm), journal"
     }
+    # homelab-proxmox-core's dry-run runner (runner01). Not homelab-core: its
+    # jobs run on the host, without Docker.
+    "github-runner" = {
+      name        = "GitHub runner"
+      description = "homelab-proxmox-core's self-hosted runner (runner01): host metrics and the runner's own logs"
+    }
   }
 }
 
@@ -214,4 +220,43 @@ resource "elasticstack_fleet_integration_policy" "core_docker" {
   agent_policy_id     = elasticstack_fleet_agent_policy.agents["homelab-core"].policy_id
   integration_name    = elasticstack_fleet_integration.docker.name
   integration_version = elasticstack_fleet_integration.docker.version
+}
+
+# -- The runner's own logs on homelab-proxmox-core's runner01 -----------------
+
+resource "elasticstack_fleet_integration" "filestream" {
+  name         = "filestream"
+  version      = "2.5.1"
+  skip_destroy = true
+}
+
+# The runner's and its jobs' diagnostic logs: registration, connections,
+# job assignment and results. Not _diag/pages/ (the steps' output). One
+# event per log line; a line that doesn't start with "[" (a stack trace)
+# belongs to the line before it.
+resource "elasticstack_fleet_integration_policy" "github_runner_diag" {
+  name                = "github-runner-diag"
+  namespace           = "default"
+  description         = "The GitHub Actions runner's _diag logs"
+  agent_policy_id     = elasticstack_fleet_agent_policy.agents["github-runner"].policy_id
+  integration_name    = elasticstack_fleet_integration.filestream.name
+  integration_version = elasticstack_fleet_integration.filestream.version
+
+  inputs = {
+    "filestream-filestream" = {
+      enabled = true
+      streams = {
+        "filestream.filestream" = {
+          enabled = true
+          vars = jsonencode({
+            paths                 = ["/opt/actions-runner/_diag/*.log"]
+            "data_stream.dataset" = "github_runner.diag"
+            parsers = yamlencode([
+              { multiline = { type = "pattern", pattern = "^\\[", negate = true, match = "after" } },
+            ])
+          })
+        }
+      }
+    }
+  }
 }
